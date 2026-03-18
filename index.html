@@ -71,6 +71,10 @@
   .btn-danger { background: #fee2e2; color: #dc2626; border: none; border-radius: 10px; padding: 8px 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; font-family: inherit; }
   .btn-danger:hover { background: #fecaca; }
 
+  /* ── In-progress row ── */
+  .inprogress-row { background: #fffbeb !important; }
+  .inprogress-row:hover { background: #fef3c7 !important; }
+
   /* ── Gradient text ── */
   .gtxt { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 </style>
@@ -112,21 +116,27 @@
       <label class="fi-label">Task Name *</label>
       <input id="fTask" type="text" class="fi" placeholder="What did you work on?" required>
     </div>
+    <div class="mb-3">
+      <label class="fi-label">Category</label>
+      <select id="fCategory" class="fi">
+        <option value="">Auto-detect from task name</option>
+      </select>
+    </div>
     <div class="grid grid-cols-3 gap-3 mb-3">
       <div>
         <label class="fi-label">Start Time</label>
         <input id="fStart" type="time" class="fi" oninput="autoCalcHours()">
       </div>
       <div>
-        <label class="fi-label">End Time</label>
+        <label class="fi-label">End Time <span class="text-gray-300 font-normal">(fill later)</span></label>
         <input id="fEnd" type="time" class="fi" oninput="autoCalcHours()">
       </div>
       <div>
-        <label class="fi-label">Hours *</label>
-        <input id="fHours" type="number" step="0.25" min="0.25" max="24" class="fi" placeholder="1.5" required>
+        <label class="fi-label">Hours <span class="text-gray-300 font-normal">(or start→end)</span></label>
+        <input id="fHours" type="number" step="0.25" min="0.25" max="24" class="fi" placeholder="1.5">
       </div>
     </div>
-    <div class="mb-5">
+    <div class="mb-4">
       <label class="fi-label">Description</label>
       <textarea id="fDesc" class="fi" rows="2" placeholder="Notes, links, details…"></textarea>
     </div>
@@ -136,10 +146,12 @@
       </div>
       <div class="flex gap-2 ml-auto">
         <button onclick="closeLogModal()" class="btn-ghost">Cancel</button>
-        <button onclick="saveEntry()" class="btn-primary">Save Entry</button>
+        <button id="btnStartTask" onclick="startTask()" class="btn-ghost" title="Save now, fill hours later">⏱ Start</button>
+        <button onclick="saveEntry()" class="btn-primary">Save</button>
       </div>
     </div>
     <input type="hidden" id="fEditId">
+    <input type="hidden" id="fStatus" value="done">
   </div>
 </div>
 
@@ -283,9 +295,12 @@ function mergeLocalEntries(data) {
       data.members[entry.member].push({
         date: entry.date, task: entry.task,
         startTime: entry.startTime || '', endTime: entry.endTime || '',
-        hours: entry.hours, description: entry.description || '',
+        hours: entry.status === 'in-progress' ? 0 : (entry.hours || 0),
+        description: entry.description || '',
         week: getWeekLabel(entry.date),
-        _localId: entry.id, _isLocal: true
+        _localId: entry.id, _isLocal: true,
+        _status: entry.status || 'done',
+        _catOverride: entry.categoryOverride || ''
       });
     }
   }
@@ -410,7 +425,9 @@ async function refreshData() {
 function enrichData(data) {
   for (const name of data.memberNames) {
     for (const r of (data.members[name] || [])) {
-      const cat = categorize(r.task);
+      const cat = r._catOverride
+        ? (CATEGORIES.find(c => c.key === r._catOverride) || CAT_OTHER)
+        : categorize(r.task);
       r.category = cat.key; r.categoryLabel = cat.label; r.categoryColor = cat.color;
       if (!r.week) r.week = getWeekLabel(r.date);
     }
@@ -426,6 +443,7 @@ function getMemberStats(rows) {
   let totalHours = 0, totalTaskCount = 0;
 
   for (const r of rows) {
+    if (r._status === 'in-progress') continue; // exclude from stats until finished
     totalHours += r.hours;
     if (r.task && r.task.trim()) totalTaskCount++;
     categories[r.category] = (categories[r.category] || 0) + r.hours;
@@ -791,19 +809,35 @@ function renderMember(name) {
   const allWeeks = [...new Set(rows.map(r=>r.week).filter(Boolean))].sort();
 
   const taskRowsHtml = rows.map((r,i)=>{
-    const hasDesc = r.description && r.description.trim();
-    const editBtn = r._isLocal ? `<button onclick="event.stopPropagation();openEditModal('${r._localId}')" class="ml-1 text-gray-300 hover:text-indigo-500 transition" title="Edit"><svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>` : '';
-    const localDot = r._isLocal ? '<span class="local-dot" title="Logged via web"></span>' : '';
+    const isLocal = r._isLocal;
+    const isInProgress = r._status === 'in-progress';
+    const hasDesc = !isLocal && r.description && r.description.trim();
+
+    // Local rows: whole row opens edit modal
+    // Non-local rows with description: toggle desc on click
+    const rowOnClick = isLocal
+      ? `onclick="openEditModal('${r._localId}')" style="cursor:pointer"`
+      : (hasDesc ? `onclick="toggleDesc(${i})"` : '');
+
+    const rowClass = `task-row border-t border-gray-50 transition ${isInProgress ? 'inprogress-row' : 'hover:bg-indigo-50/30'} ${hasDesc ? 'has-desc' : ''}`;
+
+    const localDot = isLocal ? '<span class="local-dot" title="Logged via web"></span>' : '';
+    const descIndicator = hasDesc ? ' <span class="text-gray-300 text-xs">▼</span>' : '';
+
+    const hoursCell = isInProgress
+      ? `<td class="px-4 py-2.5 text-right text-xs">
+           <span class="text-amber-500 font-semibold text-xs">⏱ In progress</span>
+         </td>`
+      : `<td class="px-4 py-2.5 text-right font-semibold text-xs">${r.hours.toFixed(2)}</td>`;
+
     return `
-      <tr class="task-row border-t border-gray-50 hover:bg-indigo-50/30 transition ${hasDesc?'has-desc':''}"
-          data-cat="${r.category}" data-week="${r.week||''}" data-task="${escHtml(r.task)}" data-row-id="${i}"
-          ${hasDesc?`onclick="toggleDesc(${i})"`:''}>
+      <tr class="${rowClass}" data-cat="${r.category}" data-week="${r.week||''}" data-task="${escHtml(r.task)}" data-row-id="${i}" ${rowOnClick}>
         <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">${r.date}</td>
-        <td class="px-4 py-2.5 font-medium text-gray-800 text-xs">${localDot}${escHtml(r.task)}${hasDesc?' <span class="text-gray-300 text-xs">▼</span>':''}${editBtn}</td>
+        <td class="px-4 py-2.5 font-medium text-gray-800 text-xs">${localDot}${escHtml(r.task)}${descIndicator}</td>
         <td class="px-4 py-2.5"><span class="cat-badge" style="background:${r.categoryColor}18;color:${r.categoryColor}">${r.categoryLabel}</span></td>
         <td class="px-4 py-2.5 text-gray-400 text-xs">${r.startTime||''}</td>
         <td class="px-4 py-2.5 text-gray-400 text-xs">${r.endTime||''}</td>
-        <td class="px-4 py-2.5 text-right font-semibold text-xs">${r.hours.toFixed(2)}</td>
+        ${hoursCell}
       </tr>
       ${hasDesc?`<tr id="desc-row-${i}" class="desc-row hidden" data-cat="${r.category}" data-week="${r.week||''}" data-task="${escHtml(r.task)}">
         <td colspan="6" class="px-4 pb-3 pt-0 text-xs text-gray-400 italic bg-indigo-50/20">${escHtml(r.description)}</td>
@@ -973,40 +1007,53 @@ function openLogModal(editId) {
   const dl = document.getElementById('memberList');
   dl.innerHTML = (DATA?.memberNames||[]).map(n=>`<option value="${n}">`).join('');
 
+  // Populate category select
+  const catSel = document.getElementById('fCategory');
+  catSel.innerHTML = '<option value="">Auto-detect from task name</option>' +
+    CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('') +
+    `<option value="other">${CAT_OTHER.label}</option>`;
+
   const isEdit = !!editId;
   document.getElementById('logModalTitle').textContent = isEdit ? 'Edit Entry' : 'Log Work';
   document.getElementById('deleteEntryBtn').classList.toggle('hidden', !isEdit);
   document.getElementById('fEditId').value = editId||'';
+  document.getElementById('fStatus').value = 'done';
+  // Show Start button only for new entries
+  document.getElementById('btnStartTask').classList.toggle('hidden', isEdit);
 
   const today = new Date().toISOString().split('T')[0];
 
   if (isEdit) {
     const entry = localEntries.find(e=>e.id===editId);
     if (!entry) return;
-    // Show override row for edits so all fields are visible
     document.getElementById('memberOverrideRow').classList.remove('hidden');
     document.getElementById('logContextRow').classList.add('opacity-40');
     document.getElementById('fMember').value = entry.member;
     document.getElementById('fDate').value = entry.date;
     document.getElementById('fTask').value = entry.task;
+    document.getElementById('fCategory').value = entry.categoryOverride||'';
     document.getElementById('fStart').value = entry.startTime||'';
     document.getElementById('fEnd').value = entry.endTime||'';
-    document.getElementById('fHours').value = entry.hours;
+    document.getElementById('fHours').value = entry.status === 'in-progress' ? '' : (entry.hours||'');
     document.getElementById('fDesc').value = entry.description||'';
+    document.getElementById('fStatus').value = entry.status||'done';
+    // If finishing an in-progress task, focus end time
+    if (entry.status === 'in-progress') {
+      document.getElementById('logModalTitle').textContent = 'Finish Task';
+      setTimeout(() => document.getElementById('fEnd').focus(), 80);
+      return;
+    }
   } else {
-    // Hide override row — use context row
     document.getElementById('memberOverrideRow').classList.add('hidden');
     document.getElementById('logContextRow').classList.remove('opacity-40');
-
-    // Resolve member: saved identity > current tab > blank
     const myName = getMyName();
     const resolvedMember = myName || (currentTab !== 'overview' ? currentTab : '');
-
     document.getElementById('ctxMember').textContent = resolvedMember || 'No member set — click "change"';
     document.getElementById('ctxDate').textContent = today;
     document.getElementById('fMember').value = resolvedMember;
     document.getElementById('fDate').value = today;
     document.getElementById('fTask').value = '';
+    document.getElementById('fCategory').value = '';
     document.getElementById('fStart').value = '';
     document.getElementById('fEnd').value = '';
     document.getElementById('fHours').value = '';
@@ -1014,7 +1061,6 @@ function openLogModal(editId) {
   }
 
   document.getElementById('logModal').classList.remove('hidden');
-  // Focus the task field immediately
   setTimeout(() => document.getElementById('fTask').focus(), 80);
 }
 
@@ -1036,8 +1082,7 @@ function autoCalcHours() {
   document.getElementById('fHours').value = (diff/60).toFixed(2);
 }
 
-function saveEntry() {
-  // If override row is hidden, read from context display
+function collectFormData(status) {
   const overrideHidden = document.getElementById('memberOverrideRow').classList.contains('hidden');
   const member = overrideHidden
     ? document.getElementById('ctxMember').textContent.trim()
@@ -1046,31 +1091,42 @@ function saveEntry() {
     ? document.getElementById('ctxDate').textContent.trim()
     : document.getElementById('fDate').value;
   const task = document.getElementById('fTask').value.trim();
-  const hours = parseFloat(document.getElementById('fHours').value);
-
-  if (!member||!date||!task||isNaN(hours)||hours<=0) {
-    alert('Please fill in Member, Date, Task, and Hours.'); return;
+  const startTime = document.getElementById('fStart').value;
+  const endTime = document.getElementById('fEnd').value;
+  let hours = parseFloat(document.getElementById('fHours').value);
+  // Auto-calc hours from start/end if hours not set
+  if (isNaN(hours) && startTime && endTime) {
+    const [sh,sm]=startTime.split(':').map(Number);
+    const [eh,em]=endTime.split(':').map(Number);
+    let diff=(eh*60+em)-(sh*60+sm); if(diff<=0) diff+=1440;
+    hours = +(diff/60).toFixed(2);
   }
+  return { member, date, task, startTime, endTime, hours,
+    categoryOverride: document.getElementById('fCategory').value,
+    description: document.getElementById('fDesc').value.trim(),
+    status: status || document.getElementById('fStatus').value || 'done'
+  };
+}
+
+function saveEntry() {
+  const d = collectFormData('done');
+  if (!d.member || !d.date || !d.task) { alert('Please fill in Member, Date and Task.'); return; }
+  if (isNaN(d.hours) || d.hours <= 0) { alert('Please enter Hours (or both Start and End time).'); return; }
 
   const editId = document.getElementById('fEditId').value;
-  const entry = {
-    id: editId || `local_${Date.now()}`,
-    member, date, task, hours,
-    startTime: document.getElementById('fStart').value,
-    endTime: document.getElementById('fEnd').value,
-    description: document.getElementById('fDesc').value.trim()
-  };
+  const entry = { id: editId || `local_${Date.now()}`, ...d };
+  if (editId) { const idx=localEntries.findIndex(e=>e.id===editId); if(idx>=0) localEntries[idx]=entry; }
+  else localEntries.push(entry);
 
-  if (editId) {
-    const idx = localEntries.findIndex(e=>e.id===editId);
-    if (idx>=0) localEntries[idx] = entry;
-  } else {
-    localEntries.push(entry);
-  }
+  saveLocalEntries(); closeLogModal(); rebuildData();
+}
 
-  saveLocalEntries();
-  closeLogModal();
-  rebuildData();
+function startTask() {
+  const d = collectFormData('in-progress');
+  if (!d.member || !d.date || !d.task) { alert('Please fill in Member, Date and Task.'); return; }
+  const entry = { id: `local_${Date.now()}`, ...d, hours: 0 };
+  localEntries.push(entry);
+  saveLocalEntries(); closeLogModal(); rebuildData();
 }
 
 function deleteEntry() {
