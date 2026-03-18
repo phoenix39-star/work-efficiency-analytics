@@ -429,7 +429,7 @@ function enrichData(data) {
         ? (CATEGORIES.find(c => c.key === r._catOverride) || CAT_OTHER)
         : categorize(r.task);
       r.category = cat.key; r.categoryLabel = cat.label; r.categoryColor = cat.color;
-      if (!r.week) r.week = getWeekLabel(r.date);
+      r.week = r.date ? getWeekLabel(r.date) : (r.week || 'Unknown');
     }
   }
   return data;
