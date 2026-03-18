@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__google-workspace__sheets_getMetadata",
+      "mcp__google-workspace__sheets_getText",
+      "mcp__google-workspace__sheets_find",
+      "mcp__google-workspace__sheets_getRange",
+      "mcp__google-workspace__drive_downloadFile",
+      "mcp__google-workspace__drive_search",
+      "Bash(open:*)",
+      "mcp__google-workspace__drive_findFolder",
+      "Bash(gh auth:*)",
+      "Bash(vercel --version)"
+    ]
+  }
+}
