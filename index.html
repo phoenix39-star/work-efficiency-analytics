@@ -1145,6 +1145,7 @@ function saveIdentity() {
   const val = document.getElementById('myIdentity').value;
   if (val) localStorage.setItem('myName', val);
   else localStorage.removeItem('myName');
+  if (val) { currentTab = val; destroyCharts(); render(); }
 }
 
 function populateIdentitySelector() {
