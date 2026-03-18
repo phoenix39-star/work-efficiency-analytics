@@ -96,77 +96,23 @@
 </head>
 <body>
 
-<!-- ═══ LOG WORK MODAL ═══ -->
-<div id="logModal" class="modal-bg hidden">
-  <div class="modal-box">
+<!-- ═══ GAS URL MODAL ═══ -->
+<div id="gasModal" class="modal-bg hidden">
+  <div class="modal-box" style="max-width:500px">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-gray-900" id="logModalTitle">Log Work</h2>
-      <button onclick="closeLogModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      <h2 class="text-lg font-bold text-gray-900">Connect Google Sheet</h2>
+      <button onclick="closeGasModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
     </div>
-    <!-- Pre-filled context row -->
-    <div id="logContextRow" class="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-2.5 mb-4">
-      <div class="flex-1 min-w-0">
-        <span class="text-xs text-green-400 font-medium">Logging as</span>
-        <div class="flex items-center gap-2 mt-0.5">
-          <span id="ctxMember" class="font-semibold text-green-800 text-sm truncate"></span>
-          <span class="text-green-300">·</span>
-          <span id="ctxDate" class="text-green-600 text-sm"></span>
-        </div>
-      </div>
-      <button onclick="toggleMemberOverride()" class="text-xs text-green-400 hover:text-green-600 underline underline-offset-2 whitespace-nowrap">change</button>
+    <p class="text-sm text-gray-500 mb-4">Paste your Google Apps Script Web App URL to get live data from Google Sheets.</p>
+    <div class="mb-2">
+      <label class="fi-label">Web App URL</label>
+      <input id="gasUrlInput" type="url" class="fi" placeholder="https://script.google.com/macros/s/.../exec">
     </div>
-    <!-- Override fields (hidden by default) -->
-    <div id="memberOverrideRow" class="grid grid-cols-2 gap-3 mb-3 hidden">
-      <div>
-        <label class="fi-label">Member *</label>
-        <input id="fMember" list="memberList" class="fi" placeholder="Select member" required>
-        <datalist id="memberList"></datalist>
-      </div>
-      <div>
-        <label class="fi-label">Date *</label>
-        <input id="fDate" type="date" class="fi" required>
-      </div>
+    <p class="text-xs text-gray-400 mb-4">Deploy <code class="bg-gray-100 px-1 rounded">gas-proxy.gs</code> → Extensions → Apps Script → Deploy as Web App → Execute as Me → Anyone.</p>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeGasModal()" class="btn-ghost">Cancel</button>
+      <button onclick="saveGasUrl()" class="btn-primary">Save & Refresh</button>
     </div>
-    <div class="mb-3">
-      <label class="fi-label">Task Name *</label>
-      <input id="fTask" type="text" class="fi" placeholder="What did you work on?" required>
-    </div>
-    <div class="mb-3">
-      <label class="fi-label">Category</label>
-      <select id="fCategory" class="fi">
-        <option value="">Auto-detect from task name</option>
-      </select>
-    </div>
-    <div class="grid grid-cols-3 gap-3 mb-3">
-      <div>
-        <label class="fi-label">Start Time</label>
-        <input id="fStart" type="time" class="fi" oninput="autoCalcHours()">
-      </div>
-      <div>
-        <label class="fi-label">End Time <span class="text-gray-300 font-normal">(fill later)</span></label>
-        <input id="fEnd" type="time" class="fi" oninput="autoCalcHours()">
-      </div>
-      <div>
-        <label class="fi-label">Hours <span class="text-gray-300 font-normal">(or start→end)</span></label>
-        <input id="fHours" type="number" step="0.25" min="0.25" max="24" class="fi" placeholder="1.5">
-      </div>
-    </div>
-    <div class="mb-4">
-      <label class="fi-label">Description</label>
-      <textarea id="fDesc" class="fi" rows="2" placeholder="Notes, links, details…"></textarea>
-    </div>
-    <div class="flex gap-2 justify-between">
-      <div id="deleteEntryBtn" class="hidden">
-        <button onclick="deleteEntry()" class="btn-danger">Delete</button>
-      </div>
-      <div class="flex gap-2 ml-auto">
-        <button onclick="closeLogModal()" class="btn-ghost">Cancel</button>
-        <button id="btnStartTask" onclick="startTask()" class="btn-ghost" title="Save now, fill hours later">⏱ Start</button>
-        <button onclick="saveEntry()" class="btn-primary">Save</button>
-      </div>
-    </div>
-    <input type="hidden" id="fEditId">
-    <input type="hidden" id="fStatus" value="done">
   </div>
 </div>
 
@@ -190,6 +136,7 @@
         <option value="">— pick —</option>
       </select>
     </div>
+    <button onclick="openGasModal()" class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition" title="Connect Google Sheet">🔗</button>
     <button onclick="refreshData()" class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition">Refresh</button>
   </div>
 </header>
@@ -222,8 +169,6 @@
   <div class="flex justify-center py-24"><div class="spinner"></div></div>
 </main>
 
-<!-- ═══ FAB ═══ -->
-<button class="fab" onclick="openLogModal()" title="Log work entry">+</button>
 
 <script>
 // ══════════════════════════════════════════════
@@ -231,7 +176,6 @@
 // ══════════════════════════════════════════════
 const CACHE_TTL = 5 * 60 * 1000;
 let DATA = null;
-let localEntries = [];
 let currentTab = 'overview';
 let timeFilter = { year: '', month: '', week: '' };
 let chartInstances = [];
@@ -286,17 +230,8 @@ function getWeekLabel(dateStr) {
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ══════════════════════════════════════════════
-//  LOCALSTORAGE — LOCAL ENTRIES
+//  LOCALSTORAGE — MEMBER PREFS
 // ══════════════════════════════════════════════
-function loadLocalEntries() {
-  try { localEntries = JSON.parse(localStorage.getItem('localEntries') || '[]'); }
-  catch { localEntries = []; }
-}
-
-function saveLocalEntries() {
-  localStorage.setItem('localEntries', JSON.stringify(localEntries));
-}
-
 function getMemberPrefs(name) {
   try { return JSON.parse(localStorage.getItem(`memberPrefs_${name}`) || '{}'); }
   catch { return {}; }
@@ -305,35 +240,6 @@ function saveMemberPrefs(name, updates) {
   const prefs = { ...getMemberPrefs(name), ...updates };
   localStorage.setItem(`memberPrefs_${name}`, JSON.stringify(prefs));
   return prefs;
-}
-
-function mergeLocalEntries(data) {
-  if (!data) return data;
-  for (const entry of localEntries) {
-    if (!entry.member) continue;
-    if (!data.memberNames.includes(entry.member)) {
-      data.memberNames.push(entry.member);
-      data.members[entry.member] = [];
-    }
-    if (!data.members[entry.member]) data.members[entry.member] = [];
-    const already = data.members[entry.member].find(r => r._localId === entry.id);
-    if (!already) {
-      const catKey = entry.categoryOverride || '';
-      const catObj = catKey ? (CATEGORIES.find(c => c.key === catKey) || CAT_OTHER) : categorize(entry.task);
-      data.members[entry.member].push({
-        date: entry.date, task: entry.task,
-        startTime: entry.startTime || '', endTime: entry.endTime || '',
-        hours: entry.status === 'in-progress' ? 0 : (entry.hours || 0),
-        description: entry.description || '',
-        week: getWeekLabel(entry.date),
-        _localId: entry.id, _isLocal: true,
-        _status: entry.status || 'done',
-        _catOverride: catKey,
-        category: catObj.key, categoryLabel: catObj.label, categoryColor: catObj.color
-      });
-    }
-  }
-  return data;
 }
 
 // ══════════════════════════════════════════════
@@ -405,9 +311,8 @@ async function fetchData() {
   const ts = sessionStorage.getItem('workDataTs');
   if (cached && ts && Date.now() - parseInt(ts) < CACHE_TTL) return JSON.parse(cached);
 
-  const sources = ['data.json'];
   const gasUrl = getGasUrl();
-  if (gasUrl) sources.push(gasUrl);
+  const sources = gasUrl ? [gasUrl, 'data.json'] : ['data.json'];
 
   for (const url of sources) {
     try {
@@ -445,7 +350,7 @@ async function refreshData() {
   sessionStorage.removeItem('workData'); sessionStorage.removeItem('workDataTs');
   document.getElementById('content').innerHTML = '<div class="flex justify-center py-24"><div class="spinner"></div></div>';
   DATA = await fetchData();
-  if (DATA) { DATA = mergeLocalEntries(enrichData(DATA)); buildFilterOptions(DATA); buildTabs(); render(); }
+  if (DATA) { DATA = enrichData(DATA); buildFilterOptions(DATA); buildTabs(); render(); }
 }
 
 // ══════════════════════════════════════════════
@@ -453,11 +358,13 @@ async function refreshData() {
 // ══════════════════════════════════════════════
 function enrichData(data) {
   for (const name of data.memberNames) {
+    const overrides = getCatOverrides(name);
     for (const r of (data.members[name] || [])) {
-      const cat = r._catOverride
-        ? (CATEGORIES.find(c => c.key === r._catOverride) || CAT_OTHER)
-        : categorize(r.task);
+      const overrideKey = `${r.date}|${r.task}`;
+      const catKey = overrides[overrideKey] || r._catOverride || '';
+      const cat = catKey ? (CATEGORIES.find(c => c.key === catKey) || CAT_OTHER) : categorize(r.task);
       r.category = cat.key; r.categoryLabel = cat.label; r.categoryColor = cat.color;
+      r._overrideKey = overrideKey;
       r.week = r.date ? getWeekLabel(r.date) : (r.week || 'Unknown');
     }
   }
@@ -896,19 +803,11 @@ function renderMember(name) {
   const allWeeks = [...new Set(rows.map(r=>r.week).filter(Boolean))].sort();
 
   const taskRowsHtml = rows.map((r,i)=>{
-    const isLocal = r._isLocal;
     const isInProgress = r._status === 'in-progress';
-    const hasDesc = !isLocal && r.description && r.description.trim();
+    const hasDesc = r.description && r.description.trim();
 
-    // Local rows: whole row opens edit modal
-    // Non-local rows with description: toggle desc on click
-    const rowOnClick = isLocal
-      ? `onclick="openEditModal('${r._localId}')" style="cursor:pointer"`
-      : (hasDesc ? `onclick="toggleDesc(${i})"` : '');
-
+    const rowOnClick = hasDesc ? `onclick="toggleDesc(${i})"` : '';
     const rowClass = `task-row border-t border-gray-50 transition ${isInProgress ? 'inprogress-row' : 'hover:bg-green-50/30'} ${hasDesc ? 'has-desc' : ''}`;
-
-    const localDot = isLocal ? '<span class="local-dot" title="Logged via web"></span>' : '';
     const descIndicator = hasDesc ? ' <span class="text-gray-300 text-xs">▼</span>' : '';
 
     const hoursCell = isInProgress
@@ -920,8 +819,8 @@ function renderMember(name) {
     return `
       <tr class="${rowClass}" data-cat="${r.category}" data-week="${r.week||''}" data-task="${escHtml(r.task)}" data-row-id="${i}" ${rowOnClick}>
         <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">${r.date}</td>
-        <td class="px-4 py-2.5 font-medium text-gray-800 text-xs">${localDot}${escHtml(r.task)}${descIndicator}</td>
-        <td class="px-4 py-2.5"><span class="cat-badge" style="background:${r.categoryColor}18;color:${r.categoryColor}">${r.categoryLabel}</span></td>
+        <td class="px-4 py-2.5 font-medium text-gray-800 text-xs">${escHtml(r.task)}${descIndicator}</td>
+        <td class="px-4 py-2.5"><span class="cat-badge cursor-pointer" style="background:${r.categoryColor}18;color:${r.categoryColor}" onclick="openCatEdit(this,'${escHtml(name)}','${escHtml(r._overrideKey||'')}','${r.category}')" title="Click to change category">${r.categoryLabel} ✎</span></td>
         <td class="px-4 py-2.5 text-gray-400 text-xs">${r.startTime||''}</td>
         <td class="px-4 py-2.5 text-gray-400 text-xs">${r.endTime||''}</td>
         ${hoursCell}
@@ -1104,6 +1003,56 @@ function autoSaveNote(name) {
   }, 600);
 }
 
+// ══════════════════════════════════════════════
+//  CATEGORY OVERRIDES (localStorage per member)
+// ══════════════════════════════════════════════
+function getCatOverrides(name) {
+  try { return JSON.parse(localStorage.getItem(`catOverrides_${name}`) || '{}'); }
+  catch { return {}; }
+}
+function saveCatOverride(name, overrideKey, catKey) {
+  const ov = getCatOverrides(name);
+  if (catKey) ov[overrideKey] = catKey; else delete ov[overrideKey];
+  localStorage.setItem(`catOverrides_${name}`, JSON.stringify(ov));
+}
+
+// ══════════════════════════════════════════════
+//  GAS URL MANAGEMENT
+// ══════════════════════════════════════════════
+function openGasModal() {
+  document.getElementById('gasUrlInput').value = getGasUrl() || '';
+  document.getElementById('gasModal').classList.remove('hidden');
+}
+function closeGasModal() { document.getElementById('gasModal').classList.add('hidden'); }
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (url) localStorage.setItem('gasUrl', url); else localStorage.removeItem('gasUrl');
+  sessionStorage.removeItem('workData'); sessionStorage.removeItem('workDataTs');
+  closeGasModal();
+  refreshData();
+}
+
+function openCatEdit(el, memberName, overrideKey, currentCat) {
+  const allCats = [...CATEGORIES, CAT_OTHER];
+  const sel = document.createElement('select');
+  sel.className = 'text-xs border border-gray-200 rounded-lg px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-green-300';
+  sel.innerHTML = allCats.map(c => `<option value="${c.key}" ${c.key===currentCat?'selected':''}>${c.label}</option>`).join('');
+  sel.onchange = () => {
+    saveCatOverride(memberName, overrideKey, sel.value);
+    const cat = allCats.find(c=>c.key===sel.value) || CAT_OTHER;
+    el.style.background = cat.color + '18';
+    el.style.color = cat.color;
+    el.textContent = cat.label + ' ✎';
+    el.setAttribute('onclick', `openCatEdit(this,'${memberName}','${overrideKey}','${sel.value}')`);
+    el.style.display = '';
+    sel.parentNode && sel.parentNode.replaceChild(el, sel);
+  };
+  el.parentNode.insertBefore(sel, el);
+  el.style.display = 'none';
+  sel.focus();
+  sel.onblur = () => { sel.parentNode && sel.parentNode.removeChild(sel); el.style.display = ''; };
+}
+
 function filterTable() {
   const cat = document.getElementById('filterCat')?.value||'';
   const week = document.getElementById('filterWeek')?.value||'';
@@ -1159,150 +1108,6 @@ function populateIdentitySelector() {
     names.map(n=>`<option value="${n}" ${n===saved?'selected':''}>${n}</option>`).join('');
 }
 
-function toggleMemberOverride() {
-  const row = document.getElementById('memberOverrideRow');
-  row.classList.toggle('hidden');
-  document.getElementById('logContextRow').classList.toggle('opacity-40');
-}
-
-// ══════════════════════════════════════════════
-//  LOG WORK CRUD
-// ══════════════════════════════════════════════
-function openLogModal(editId) {
-  const dl = document.getElementById('memberList');
-  dl.innerHTML = (DATA?.memberNames||[]).map(n=>`<option value="${n}">`).join('');
-
-  // Populate category select
-  const catSel = document.getElementById('fCategory');
-  catSel.innerHTML = '<option value="">Auto-detect from task name</option>' +
-    CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('') +
-    `<option value="other">${CAT_OTHER.label}</option>`;
-
-  const isEdit = !!editId;
-  document.getElementById('logModalTitle').textContent = isEdit ? 'Edit Entry' : 'Log Work';
-  document.getElementById('deleteEntryBtn').classList.toggle('hidden', !isEdit);
-  document.getElementById('fEditId').value = editId||'';
-  document.getElementById('fStatus').value = 'done';
-  // Show Start button only for new entries
-  document.getElementById('btnStartTask').classList.toggle('hidden', isEdit);
-
-  const today = new Date().toISOString().split('T')[0];
-
-  if (isEdit) {
-    const entry = localEntries.find(e=>e.id===editId);
-    if (!entry) return;
-    document.getElementById('memberOverrideRow').classList.remove('hidden');
-    document.getElementById('logContextRow').classList.add('opacity-40');
-    document.getElementById('fMember').value = entry.member;
-    document.getElementById('fDate').value = entry.date;
-    document.getElementById('fTask').value = entry.task;
-    document.getElementById('fCategory').value = entry.categoryOverride||'';
-    document.getElementById('fStart').value = entry.startTime||'';
-    document.getElementById('fEnd').value = entry.endTime||'';
-    document.getElementById('fHours').value = entry.status === 'in-progress' ? '' : (entry.hours||'');
-    document.getElementById('fDesc').value = entry.description||'';
-    document.getElementById('fStatus').value = entry.status||'done';
-    // If finishing an in-progress task, focus end time
-    if (entry.status === 'in-progress') {
-      document.getElementById('logModalTitle').textContent = 'Finish Task';
-      setTimeout(() => document.getElementById('fEnd').focus(), 80);
-      return;
-    }
-  } else {
-    document.getElementById('memberOverrideRow').classList.add('hidden');
-    document.getElementById('logContextRow').classList.remove('opacity-40');
-    const myName = getMyName();
-    const resolvedMember = myName || (currentTab !== 'overview' ? currentTab : '');
-    document.getElementById('ctxMember').textContent = resolvedMember || 'No member set — click "change"';
-    document.getElementById('ctxDate').textContent = today;
-    document.getElementById('fMember').value = resolvedMember;
-    document.getElementById('fDate').value = today;
-    document.getElementById('fTask').value = '';
-    document.getElementById('fCategory').value = '';
-    document.getElementById('fStart').value = '';
-    document.getElementById('fEnd').value = '';
-    document.getElementById('fHours').value = '';
-    document.getElementById('fDesc').value = '';
-  }
-
-  document.getElementById('logModal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('fTask').focus(), 80);
-}
-
-function openEditModal(localId) { openLogModal(localId); }
-
-function closeLogModal() {
-  document.getElementById('logModal').classList.add('hidden');
-  document.getElementById('memberOverrideRow').classList.add('hidden');
-}
-
-function autoCalcHours() {
-  const start = document.getElementById('fStart').value;
-  const end = document.getElementById('fEnd').value;
-  if (!start||!end) return;
-  const [sh,sm]=start.split(':').map(Number);
-  const [eh,em]=end.split(':').map(Number);
-  let diff = (eh*60+em)-(sh*60+sm);
-  if (diff<=0) diff+=24*60;
-  document.getElementById('fHours').value = (diff/60).toFixed(2);
-}
-
-function collectFormData(status) {
-  const overrideHidden = document.getElementById('memberOverrideRow').classList.contains('hidden');
-  const member = overrideHidden
-    ? document.getElementById('ctxMember').textContent.trim()
-    : document.getElementById('fMember').value.trim();
-  const date = overrideHidden
-    ? document.getElementById('ctxDate').textContent.trim()
-    : document.getElementById('fDate').value;
-  const task = document.getElementById('fTask').value.trim();
-  const startTime = document.getElementById('fStart').value;
-  const endTime = document.getElementById('fEnd').value;
-  let hours = parseFloat(document.getElementById('fHours').value);
-  // Auto-calc hours from start/end if hours not set
-  if (isNaN(hours) && startTime && endTime) {
-    const [sh,sm]=startTime.split(':').map(Number);
-    const [eh,em]=endTime.split(':').map(Number);
-    let diff=(eh*60+em)-(sh*60+sm); if(diff<=0) diff+=1440;
-    hours = +(diff/60).toFixed(2);
-  }
-  return { member, date, task, startTime, endTime, hours,
-    categoryOverride: document.getElementById('fCategory').value,
-    description: document.getElementById('fDesc').value.trim(),
-    status: status || document.getElementById('fStatus').value || 'done'
-  };
-}
-
-function saveEntry() {
-  const d = collectFormData('done');
-  if (!d.member || !d.date || !d.task) { alert('Please fill in Member, Date and Task.'); return; }
-  if (isNaN(d.hours) || d.hours <= 0) { alert('Please enter Hours (or both Start and End time).'); return; }
-
-  const editId = document.getElementById('fEditId').value;
-  const entry = { id: editId || `local_${Date.now()}`, ...d };
-  if (editId) { const idx=localEntries.findIndex(e=>e.id===editId); if(idx>=0) localEntries[idx]=entry; }
-  else localEntries.push(entry);
-
-  saveLocalEntries(); closeLogModal(); rebuildData();
-}
-
-function startTask() {
-  const d = collectFormData('in-progress');
-  if (!d.member || !d.date || !d.task) { alert('Please fill in Member, Date and Task.'); return; }
-  const entry = { id: `local_${Date.now()}`, ...d, hours: 0 };
-  localEntries.push(entry);
-  saveLocalEntries(); closeLogModal(); rebuildData();
-}
-
-function deleteEntry() {
-  const editId = document.getElementById('fEditId').value;
-  if (!editId||!confirm('Delete this entry?')) return;
-  localEntries = localEntries.filter(e=>e.id!==editId);
-  saveLocalEntries();
-  closeLogModal();
-  rebuildData();
-}
-
 async function rebuildData() {
   // Re-fetch base data and re-merge
   const cached = sessionStorage.getItem('workData');
@@ -1310,7 +1115,7 @@ async function rebuildData() {
   if (!base) return;
   // Deep clone to avoid mutation
   base = JSON.parse(JSON.stringify(base));
-  DATA = mergeLocalEntries(enrichData(base));
+  DATA = enrichData(base);
   buildFilterOptions(DATA);
   populateIdentitySelector();
   buildTabs();
@@ -1322,13 +1127,12 @@ async function rebuildData() {
 //  INIT
 // ══════════════════════════════════════════════
 (async function init() {
-  loadLocalEntries();
   let base = await fetchData();
   if (!base) {
     document.getElementById('content').innerHTML = '<div class="text-center py-24 text-gray-400">Failed to load data. Serve this folder with a local HTTP server.</div>';
     return;
   }
-  DATA = mergeLocalEntries(enrichData(base));
+  DATA = enrichData(base);
   buildFilterOptions(DATA);
   populateIdentitySelector();
   buildTabs();
