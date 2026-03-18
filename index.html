@@ -14,7 +14,7 @@
   /* ── Tabs ── */
   .tab-pill { padding: 6px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all .15s; white-space: nowrap; cursor: pointer; border: none; background: transparent; }
   .tab-pill:hover { color: #334155; background: #f1f5f9; }
-  .tab-pill.tab-active { background: white; color: #4f46e5; font-weight: 650; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+  .tab-pill.tab-active { background: white; color: #16a34a; font-weight: 650; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 
   /* ── Cards ── */
   .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
@@ -27,18 +27,18 @@
 
   /* ── Suggestion cards ── */
   .suggestion-card { border-left: 4px solid #f59e0b; }
-  .suggestion-card-claude { border-left: 4px solid #6366f1; }
+  .suggestion-card-claude { border-left: 4px solid #16a34a; }
 
   /* ── Charts ── */
   canvas { max-height: 300px; }
 
   /* ── Spinner ── */
-  .spinner { border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; width: 36px; height: 36px; animation: spin .7s linear infinite; }
+  .spinner { border: 3px solid #e5e7eb; border-top-color: #16a34a; border-radius: 50%; width: 36px; height: 36px; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── Scrollbar ── */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: #bbf7d0; border-radius: 3px; }
 
   /* ── Table ── */
   .task-table th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
@@ -51,8 +51,8 @@
   .heatmap-day[title]:hover::after { content: attr(title); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #1e293b; color: white; font-size: 10px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 20; pointer-events: none; }
 
   /* ── FAB ── */
-  .fab { position: fixed; bottom: 28px; right: 28px; z-index: 100; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(99,102,241,0.45); cursor: pointer; border: none; transition: transform .15s, box-shadow .15s; }
-  .fab:hover { transform: scale(1.1); box-shadow: 0 8px 30px rgba(99,102,241,0.55); }
+  .fab { position: fixed; bottom: 28px; right: 28px; z-index: 100; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, #16a34a, #15803d); color: white; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(22,163,74,0.45); cursor: pointer; border: none; transition: transform .15s, box-shadow .15s; }
+  .fab:hover { transform: scale(1.1); box-shadow: 0 8px 30px rgba(22,163,74,0.55); }
 
   /* ── Modal ── */
   .modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(5px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -60,11 +60,11 @@
 
   /* ── Form ── */
   .fi { width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; font-size: 0.875rem; outline: none; transition: border-color .15s, box-shadow .15s; font-family: inherit; }
-  .fi:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  .fi:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
   .fi-label { font-size: 0.75rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
 
   /* ── Buttons ── */
-  .btn-primary { background: linear-gradient(135deg, #6366f1, #7c3aed); color: white; border: none; border-radius: 10px; padding: 9px 20px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; font-family: inherit; }
+  .btn-primary { background: linear-gradient(135deg, #16a34a, #15803d); color: white; border: none; border-radius: 10px; padding: 9px 20px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; font-family: inherit; }
   .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
   .btn-ghost { background: transparent; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; color: #64748b; cursor: pointer; transition: background .15s; font-family: inherit; }
   .btn-ghost:hover { background: #f8fafc; }
@@ -76,18 +76,18 @@
   .inprogress-row:hover { background: #fef3c7 !important; }
 
   /* ── Gradient text ── */
-  .gtxt { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .gtxt { background: linear-gradient(135deg, #16a34a, #15803d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
   /* ── Customize Panel ── */
-  .customize-panel { background: white; border: 1.5px solid #e0e7ff; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; }
+  .customize-panel { background: white; border: 1.5px solid #dcfce7; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; }
   .color-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .15s, border-color .15s; }
   .color-swatch.active { border-color: #1e293b; transform: scale(1.15); }
   .color-swatch:hover { transform: scale(1.1); }
-  .goal-bar-track { height: 6px; background: #e0e7ff; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .goal-bar-track { height: 6px; background: #dcfce7; border-radius: 3px; margin-top: 6px; overflow: hidden; }
   .goal-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
   .widget-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.8rem; color: #475569; }
   .toggle-pill { width: 36px; height: 20px; border-radius: 10px; background: #e2e8f0; position: relative; transition: background .2s; flex-shrink: 0; }
-  .toggle-pill.on { background: #6366f1; }
+  .toggle-pill.on { background: #16a34a; }
   .toggle-pill::after { content:''; position:absolute; width:14px; height:14px; border-radius:50%; background:white; top:3px; left:3px; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
   .toggle-pill.on::after { left: 19px; }
   .sticky-note { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
@@ -104,16 +104,16 @@
       <button onclick="closeLogModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
     </div>
     <!-- Pre-filled context row -->
-    <div id="logContextRow" class="flex items-center gap-2 bg-indigo-50 rounded-xl px-4 py-2.5 mb-4">
+    <div id="logContextRow" class="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-2.5 mb-4">
       <div class="flex-1 min-w-0">
-        <span class="text-xs text-indigo-400 font-medium">Logging as</span>
+        <span class="text-xs text-green-400 font-medium">Logging as</span>
         <div class="flex items-center gap-2 mt-0.5">
-          <span id="ctxMember" class="font-semibold text-indigo-800 text-sm truncate"></span>
-          <span class="text-indigo-300">·</span>
-          <span id="ctxDate" class="text-indigo-600 text-sm"></span>
+          <span id="ctxMember" class="font-semibold text-green-800 text-sm truncate"></span>
+          <span class="text-green-300">·</span>
+          <span id="ctxDate" class="text-green-600 text-sm"></span>
         </div>
       </div>
-      <button onclick="toggleMemberOverride()" class="text-xs text-indigo-400 hover:text-indigo-600 underline underline-offset-2 whitespace-nowrap">change</button>
+      <button onclick="toggleMemberOverride()" class="text-xs text-green-400 hover:text-green-600 underline underline-offset-2 whitespace-nowrap">change</button>
     </div>
     <!-- Override fields (hidden by default) -->
     <div id="memberOverrideRow" class="grid grid-cols-2 gap-3 mb-3 hidden">
@@ -171,7 +171,7 @@
 </div>
 
 <!-- ═══ HEADER ═══ -->
-<header style="background:linear-gradient(135deg,#4f46e5,#7c3aed)" class="sticky top-0 z-50 px-5 py-3 flex items-center justify-between shadow-lg">
+<header style="background:linear-gradient(135deg,#16a34a,#15803d)" class="sticky top-0 z-50 px-5 py-3 flex items-center justify-between shadow-lg">
   <div class="flex items-center gap-3">
     <div class="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
       <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -204,13 +204,13 @@
 <!-- ═══ TIME FILTER BAR ═══ -->
 <div class="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 items-center flex-wrap">
   <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">Period:</span>
-  <select id="gYear" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-300 focus:outline-none bg-gray-50">
+  <select id="gYear" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-green-300 focus:outline-none bg-gray-50">
     <option value="">All Years</option>
   </select>
-  <select id="gMonth" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-300 focus:outline-none bg-gray-50">
+  <select id="gMonth" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-green-300 focus:outline-none bg-gray-50">
     <option value="">All Months</option>
   </select>
-  <select id="gWeek" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-300 focus:outline-none bg-gray-50">
+  <select id="gWeek" onchange="applyTimeFilter()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-green-300 focus:outline-none bg-gray-50">
     <option value="">All Weeks</option>
   </select>
   <button onclick="clearTimeFilter()" class="text-xs text-indigo-500 hover:text-indigo-700 font-medium ml-1 transition">Clear</button>
@@ -241,7 +241,7 @@ let currentMemberPrefs = {};
 //  CATEGORY ENGINE
 // ══════════════════════════════════════════════
 const CATEGORIES = [
-  { key: 'editing',    label: 'Editing',        color: '#6366f1', keywords: ['edit','bien tap','biên tập','dựng','rough cut','hook','revise','sửa','dung','chinh sua','chỉnh sửa','broll','mixing','sfx','bgm'] },
+  { key: 'editing',    label: 'Editing',        color: '#16a34a', keywords: ['edit','bien tap','biên tập','dựng','rough cut','hook','revise','sửa','dung','chinh sua','chỉnh sửa','broll','mixing','sfx','bgm'] },
   { key: 'meetings',   label: 'Meetings',       color: '#ec4899', keywords: ['họp','hop','meeting','trao đổi','trao doi','catch up','sync','agi','standup'] },
   { key: 'design',     label: 'Design',         color: '#14b8a6', keywords: ['thumb','design','template','layout','element','slide','thiết kế','thiet ke','brief thumb','banner'] },
   { key: 'content',    label: 'Content & SEO',  color: '#f59e0b', keywords: ['seo','content','script','kịch bản','kich ban','research','nghiên cứu','nghien cuu','document','direction','strategy','bài viết','article'] },
@@ -318,6 +318,8 @@ function mergeLocalEntries(data) {
     if (!data.members[entry.member]) data.members[entry.member] = [];
     const already = data.members[entry.member].find(r => r._localId === entry.id);
     if (!already) {
+      const catKey = entry.categoryOverride || '';
+      const catObj = catKey ? (CATEGORIES.find(c => c.key === catKey) || CAT_OTHER) : categorize(entry.task);
       data.members[entry.member].push({
         date: entry.date, task: entry.task,
         startTime: entry.startTime || '', endTime: entry.endTime || '',
@@ -326,7 +328,8 @@ function mergeLocalEntries(data) {
         week: getWeekLabel(entry.date),
         _localId: entry.id, _isLocal: true,
         _status: entry.status || 'done',
-        _catOverride: entry.categoryOverride || ''
+        _catOverride: catKey,
+        category: catObj.key, categoryLabel: catObj.label, categoryColor: catObj.color
       });
     }
   }
@@ -650,7 +653,7 @@ function buildHeatmap(rows) {
     if (h===0) { bg='#f1f5f9'; textColor='#94a3b8'; }
     else if (intensity<0.25) { bg='#e0e7ff'; textColor='#4338ca'; }
     else if (intensity<0.5) { bg='#a5b4fc'; textColor='#3730a3'; }
-    else if (intensity<0.75) { bg='#6366f1'; textColor='white'; }
+    else if (intensity<0.75) { bg='#16a34a'; textColor='white'; }
     else { bg='#4338ca'; textColor='white'; }
     const tip = h>0?`${ds}: ${h.toFixed(1)}h · ${tc} tasks`:ds;
     html += `<div class="heatmap-day" style="background:${bg};color:${textColor}" title="${tip}">${h>0?h.toFixed(1):''}</div>`;
@@ -727,7 +730,7 @@ function renderOverview() {
     const stats = getMemberStats(rows);
     const cwH = getCurrentWeekHours(DATA.members[name]||[]);
     const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const colors = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#22c55e'];
+    const colors = ['#16a34a','#ec4899','#14b8a6','#f59e0b','#ef4444','#6366f1'];
     const color = colors[names.indexOf(name)%colors.length];
     cardsHtml += `
       <div class="stat-card cursor-pointer" onclick="currentTab='${name}';destroyCharts();render()">
@@ -759,7 +762,7 @@ function renderOverview() {
     <div id="suggestionsPanel"></div>`;
 
   const totalByMember = names.map(n=>getMemberStats(getFilteredRows(DATA.members[n]||[])).totalHours);
-  const weekColors = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#22c55e'];
+  const weekColors = ['#16a34a','#ec4899','#14b8a6','#f59e0b','#ef4444','#6366f1'];
   chartInstances.push(new Chart(document.getElementById('chartTeamHours'), {
     type:'bar',
     data:{ labels:names, datasets:[{ label:'Hours', data:totalByMember, backgroundColor:names.map((_,i)=>weekColors[i%weekColors.length]+'cc'), borderRadius:8 }] },
@@ -803,7 +806,7 @@ function renderMember(name) {
 
   // Load prefs
   currentMemberPrefs = getMemberPrefs(name);
-  const accent = currentMemberPrefs.accentColor || '#6366f1';
+  const accent = currentMemberPrefs.accentColor || '#16a34a';
   const goal = currentMemberPrefs.weeklyGoal || 0;
   const hiddenWidgets = currentMemberPrefs.hiddenWidgets || [];
 
@@ -818,7 +821,7 @@ function renderMember(name) {
   const headerHtml = `
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-bold text-gray-800">${escHtml(name)}</h2>
-      <button onclick="toggleCustomizePanel()" class="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition">⚙️ Customize</button>
+      <button onclick="toggleCustomizePanel()" class="flex items-center gap-1.5 text-xs text-green-600 border border-green-200 rounded-lg px-3 py-1.5 hover:bg-green-50 transition">⚙️ Customize</button>
     </div>`;
 
   // Customize panel
@@ -883,7 +886,7 @@ function renderMember(name) {
       ${buildHeatmap(rows)||'<p class="text-xs text-gray-400">No data in this period.</p>'}
       <div class="flex items-center gap-2 mt-3 text-xs text-gray-400">
         <span>Less</span>
-        <div class="flex gap-1">${['#f1f5f9','#e0e7ff','#a5b4fc','#6366f1','#4338ca'].map(c=>`<div style="width:13px;height:13px;border-radius:3px;background:${c}"></div>`).join('')}</div>
+        <div class="flex gap-1">${['#f1f5f9','#dcfce7','#86efac','#16a34a','#14532d'].map(c=>`<div style="width:13px;height:13px;border-radius:3px;background:${c}"></div>`).join('')}</div>
         <span>More</span>
       </div>
     </div>`;
@@ -903,7 +906,7 @@ function renderMember(name) {
       ? `onclick="openEditModal('${r._localId}')" style="cursor:pointer"`
       : (hasDesc ? `onclick="toggleDesc(${i})"` : '');
 
-    const rowClass = `task-row border-t border-gray-50 transition ${isInProgress ? 'inprogress-row' : 'hover:bg-indigo-50/30'} ${hasDesc ? 'has-desc' : ''}`;
+    const rowClass = `task-row border-t border-gray-50 transition ${isInProgress ? 'inprogress-row' : 'hover:bg-green-50/30'} ${hasDesc ? 'has-desc' : ''}`;
 
     const localDot = isLocal ? '<span class="local-dot" title="Logged via web"></span>' : '';
     const descIndicator = hasDesc ? ' <span class="text-gray-300 text-xs">▼</span>' : '';
@@ -924,7 +927,7 @@ function renderMember(name) {
         ${hoursCell}
       </tr>
       ${hasDesc?`<tr id="desc-row-${i}" class="desc-row hidden" data-cat="${r.category}" data-week="${r.week||''}" data-task="${escHtml(r.task)}">
-        <td colspan="6" class="px-4 pb-3 pt-0 text-xs text-gray-400 italic bg-indigo-50/20">${escHtml(r.description)}</td>
+        <td colspan="6" class="px-4 pb-3 pt-0 text-xs text-gray-400 italic bg-green-50/20">${escHtml(r.description)}</td>
       </tr>`:''}`;
   }).join('');
 
@@ -957,7 +960,7 @@ function renderMember(name) {
       <div class="px-5 py-3 border-b border-gray-50 flex flex-wrap gap-2 items-center">
         <h3 class="font-semibold text-sm text-gray-700 mr-1">Task Log</h3>
         <span class="text-xs text-gray-400">(${rows.length} entries)</span>
-        <input id="filterSearch" type="text" placeholder="Search…" oninput="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-200 focus:outline-none ml-1" style="min-width:130px">
+        <input id="filterSearch" type="text" placeholder="Search…" oninput="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-green-200 focus:outline-none ml-1" style="min-width:130px">
         <select id="filterCat" onchange="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
           <option value="">All Categories</option>
           ${allCats.map(c=>`<option value="${c}">${(CATEGORIES.find(x=>x.key===c)||CAT_OTHER).label}</option>`).join('')}
@@ -991,7 +994,7 @@ function renderMember(name) {
     type:'doughnut',
     data:{ labels:catEntries.map(([k])=>(CATEGORIES.find(c=>c.key===k)||CAT_OTHER).label), datasets:[{ data:catEntries.map(([,v])=>+v.toFixed(2)), backgroundColor:catEntries.map(([k])=>catColor(k)), borderWidth:0, hoverOffset:4 }] },
     options:{ responsive:true, cutout:'62%', plugins:{legend:{position:'right',labels:{boxWidth:11,font:{size:11}}}},
-      animation:{onComplete(){ const c=document.getElementById('doughnutCenter'); if(c) c.innerHTML=`${topCatLabel}<br><span style="font-size:15px;color:#6366f1;font-weight:800">${topCatPct}%</span>`; }} }
+      animation:{onComplete(){ const c=document.getElementById('doughnutCenter'); if(c) c.innerHTML=`${topCatLabel}<br><span style="font-size:15px;color:#16a34a;font-weight:800">${topCatPct}%</span>`; }} }
   }));
 
   // Weekly bar
@@ -999,7 +1002,7 @@ function renderMember(name) {
   chartInstances.push(new Chart(document.getElementById('chartMemberWeekly'),{
     type:'bar',
     data:{ labels:weekEntries.map(([w])=>w.replace(/^\d{4}-\d{2} \| /,'')), datasets:[
-      {label:'Weekday',data:weekEntries.map(([,v])=>+v.weekday.toFixed(2)),backgroundColor:'#6366f1',borderRadius:5},
+      {label:'Weekday',data:weekEntries.map(([,v])=>+v.weekday.toFixed(2)),backgroundColor:'#16a34a',borderRadius:5},
       {label:'Weekend',data:weekEntries.map(([,v])=>+v.weekend.toFixed(2)),backgroundColor:'#f59e0b',borderRadius:5}
     ]},
     options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}
@@ -1010,7 +1013,7 @@ function renderMember(name) {
   if (!hiddenWidgets.includes('topTasks')) {
     chartInstances.push(new Chart(document.getElementById('chartTopTasks'),{
       type:'bar',
-      data:{ labels:topTasks.map(t=>t.name.length>28?t.name.slice(0,26)+'…':t.name), datasets:[{label:'Hours',data:topTasks.map(t=>+t.hours.toFixed(2)),backgroundColor:topTasks.map(t=>t.color||'#6366f1'),borderRadius:5}] },
+      data:{ labels:topTasks.map(t=>t.name.length>28?t.name.slice(0,26)+'…':t.name), datasets:[{label:'Hours',data:topTasks.map(t=>+t.hours.toFixed(2)),backgroundColor:topTasks.map(t=>t.color||'#16a34a'),borderRadius:5}] },
       options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
     }));
   }
@@ -1020,7 +1023,7 @@ function renderMember(name) {
   if (!hiddenWidgets.includes('timing')) {
     chartInstances.push(new Chart(document.getElementById('chartTiming'),{
       type:'bar',
-      data:{ labels:['Morning\n06–12','Afternoon\n12–18','Evening\n18–24','Night\n00–06'], datasets:[{label:'Hours',data:[timing.Morning,timing.Afternoon,timing.Evening,timing.Night].map(v=>+v.toFixed(2)),backgroundColor:['#fde68a','#f59e0b','#6366f1','#312e81'],borderRadius:6}] },
+      data:{ labels:['Morning\n06–12','Afternoon\n12–18','Evening\n18–24','Night\n00–06'], datasets:[{label:'Hours',data:[timing.Morning,timing.Afternoon,timing.Evening,timing.Night].map(v=>+v.toFixed(2)),backgroundColor:['#fde68a','#f59e0b','#16a34a','#14532d'],borderRadius:6}] },
       options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
     }));
   }
@@ -1032,7 +1035,7 @@ function renderMember(name) {
 // ══════════════════════════════════════════════
 //  MEMBER CUSTOMIZATION
 // ══════════════════════════════════════════════
-const ACCENT_COLORS = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#22c55e'];
+const ACCENT_COLORS = ['#16a34a','#ec4899','#14b8a6','#f59e0b','#ef4444','#6366f1'];
 const WIDGET_DEFS = [
   { id:'note',        label:'Personal Note' },
   { id:'heatmap',     label:'Daily Heatmap' },
@@ -1050,7 +1053,7 @@ function initCustomizePanel(name) {
   const swatchContainer = document.getElementById('colorSwatches');
   if (swatchContainer) {
     swatchContainer.innerHTML = ACCENT_COLORS.map(c =>
-      `<div class="color-swatch ${(prefs.accentColor||'#6366f1')===c?'active':''}"
+      `<div class="color-swatch ${(prefs.accentColor||'#16a34a')===c?'active':''}"
         style="background:${c}" onclick="setAccentColor('${name}','${c}')"></div>`
     ).join('');
   }
@@ -1128,7 +1131,7 @@ function renderSuggestions(suggestions, containerId) {
         ${suggestions.slice(0,12).map(s=>{
           const isClaude = s.type==='claude';
           const cls = isClaude
-            ? 'suggestion-card-claude bg-indigo-50/80 rounded-xl px-4 py-2.5 text-sm text-indigo-900'
+            ? 'suggestion-card-claude bg-green-50/80 rounded-xl px-4 py-2.5 text-sm text-indigo-900'
             : 'suggestion-card bg-white rounded-xl px-4 py-2.5 text-sm text-gray-700';
           return `<div class="${cls}"><span class="mr-1.5">${s.icon}</span>${s.text}</div>`;
         }).join('')}
