@@ -77,6 +77,21 @@
 
   /* ── Gradient text ── */
   .gtxt { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* ── Customize Panel ── */
+  .customize-panel { background: white; border: 1.5px solid #e0e7ff; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; }
+  .color-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .15s, border-color .15s; }
+  .color-swatch.active { border-color: #1e293b; transform: scale(1.15); }
+  .color-swatch:hover { transform: scale(1.1); }
+  .goal-bar-track { height: 6px; background: #e0e7ff; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .goal-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+  .widget-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.8rem; color: #475569; }
+  .toggle-pill { width: 36px; height: 20px; border-radius: 10px; background: #e2e8f0; position: relative; transition: background .2s; flex-shrink: 0; }
+  .toggle-pill.on { background: #6366f1; }
+  .toggle-pill::after { content:''; position:absolute; width:14px; height:14px; border-radius:50%; background:white; top:3px; left:3px; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .toggle-pill.on::after { left: 19px; }
+  .sticky-note { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
+  .sticky-note textarea { width: 100%; border: none; background: transparent; resize: none; font-size: 0.85rem; color: #78350f; font-family: inherit; outline: none; min-height: 60px; }
 </style>
 </head>
 <body>
@@ -220,6 +235,7 @@ let localEntries = [];
 let currentTab = 'overview';
 let timeFilter = { year: '', month: '', week: '' };
 let chartInstances = [];
+let currentMemberPrefs = {};
 
 // ══════════════════════════════════════════════
 //  CATEGORY ENGINE
@@ -279,6 +295,16 @@ function loadLocalEntries() {
 
 function saveLocalEntries() {
   localStorage.setItem('localEntries', JSON.stringify(localEntries));
+}
+
+function getMemberPrefs(name) {
+  try { return JSON.parse(localStorage.getItem(`memberPrefs_${name}`) || '{}'); }
+  catch { return {}; }
+}
+function saveMemberPrefs(name, updates) {
+  const prefs = { ...getMemberPrefs(name), ...updates };
+  localStorage.setItem(`memberPrefs_${name}`, JSON.stringify(prefs));
+  return prefs;
 }
 
 function mergeLocalEntries(data) {
@@ -775,26 +801,84 @@ function renderMember(name) {
   const stats = getMemberStats(rows);
   const cwH = getCurrentWeekHours(allRows);
 
+  // Load prefs
+  currentMemberPrefs = getMemberPrefs(name);
+  const accent = currentMemberPrefs.accentColor || '#6366f1';
+  const goal = currentMemberPrefs.weeklyGoal || 0;
+  const hiddenWidgets = currentMemberPrefs.hiddenWidgets || [];
+
+  // Apply accent color to .gtxt
+  document.getElementById('memberAccentStyle')?.remove();
+  const styleEl = document.createElement('style');
+  styleEl.id = 'memberAccentStyle';
+  styleEl.textContent = `.gtxt { background: linear-gradient(135deg, ${accent}, ${accent}cc) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; background-clip: text !important; }`;
+  document.head.appendChild(styleEl);
+
+  // Header row
+  const headerHtml = `
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-800">${escHtml(name)}</h2>
+      <button onclick="toggleCustomizePanel()" class="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition">⚙️ Customize</button>
+    </div>`;
+
+  // Customize panel
+  const customizePanelHtml = `
+    <div id="customizePanel" class="customize-panel hidden mb-4">
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-gray-500 mb-2">Accent Color</div>
+        <div class="flex gap-2" id="colorSwatches"></div>
+      </div>
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-gray-500 mb-2">Weekly Hours Goal <span class="font-normal text-gray-400">(0 = off)</span></div>
+        <input id="goalInput" type="number" min="0" max="80" step="1" class="fi" style="max-width:100px" placeholder="40" value="${goal||''}">
+        <button onclick="saveGoal('${escHtml(name)}')" class="btn-ghost ml-2" style="padding:7px 14px;font-size:0.8rem">Save</button>
+      </div>
+      <div>
+        <div class="text-xs font-semibold text-gray-500 mb-2">Show / Hide Sections</div>
+        <div class="grid grid-cols-2 gap-2" id="widgetToggles"></div>
+      </div>
+    </div>`;
+
+  // Personal note
+  const noteDisplay = hiddenWidgets.includes('note') ? 'display:none' : '';
+  const noteHtml = `
+    <div id="widget-note" class="sticky-note" style="${noteDisplay}">
+      <div class="text-xs font-semibold text-amber-700 mb-1.5">📝 My Notes</div>
+      <textarea id="memberNote" placeholder="Write anything — goals, reminders, context…" oninput="autoSaveNote('${escHtml(name)}')">${escHtml(currentMemberPrefs.note||'')}</textarea>
+    </div>`;
+
   // Stat cards
+  const thisWeekCard = `
+    <div class="stat-card">
+      <div class="text-xs font-medium text-gray-400 mb-1">This Week</div>
+      <div class="text-2xl font-extrabold gtxt">${cwH.toFixed(1)}h</div>
+      ${goal > 0 ? `
+        <div class="goal-bar-track mt-1.5">
+          <div class="goal-bar-fill" style="width:${Math.min(cwH/goal*100,100).toFixed(1)}%;background:${accent}"></div>
+        </div>
+        <div class="text-xs text-gray-400 mt-1">goal: ${goal}h</div>` : ''}
+    </div>`;
+
   const statsHtml = `
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
       ${[
         ['Monthly Total', stats.totalHours.toFixed(1)+'h', 'text-2xl font-extrabold gtxt'],
-        ['This Week', cwH.toFixed(1)+'h', 'text-2xl font-extrabold gtxt'],
+        null,
         ['Busiest Day', stats.busiestDay, 'text-base font-bold text-gray-700'],
         ['Avg / Day', stats.avgPerDay.toFixed(1)+'h', 'text-2xl font-extrabold gtxt'],
         ['Total Tasks', stats.totalTaskCount, 'text-2xl font-extrabold gtxt'],
         ['Peak Time', stats.peakTime, 'text-lg font-bold text-gray-700'],
-      ].map(([label,val,cls])=>`
+      ].map((item,idx)=> idx===1 ? thisWeekCard : `
         <div class="stat-card">
-          <div class="text-xs font-medium text-gray-400 mb-1">${label}</div>
-          <div class="${cls}">${val}</div>
+          <div class="text-xs font-medium text-gray-400 mb-1">${item[0]}</div>
+          <div class="${item[2]}">${item[1]}</div>
         </div>`).join('')}
     </div>`;
 
   // Heatmap
+  const heatmapDisplay = hiddenWidgets.includes('heatmap') ? 'display:none' : '';
   const heatmapHtml = `
-    <div class="card p-5 mb-4">
+    <div id="widget-heatmap" class="card p-5 mb-4" style="${heatmapDisplay}">
       <h3 class="font-semibold text-sm mb-3 text-gray-600">Daily Activity</h3>
       ${buildHeatmap(rows)||'<p class="text-xs text-gray-400">No data in this period.</p>'}
       <div class="flex items-center gap-2 mt-3 text-xs text-gray-400">
@@ -844,7 +928,7 @@ function renderMember(name) {
       </tr>`:''}`;
   }).join('');
 
-  el.innerHTML = statsHtml + heatmapHtml + `
+  el.innerHTML = headerHtml + customizePanelHtml + noteHtml + statsHtml + heatmapHtml + `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
       <div class="card p-5">
         <h3 class="font-semibold text-sm mb-3 text-gray-600">Category Distribution</h3>
@@ -859,16 +943,16 @@ function renderMember(name) {
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-      <div class="card p-5">
+      <div id="widget-topTasks" class="card p-5" style="${hiddenWidgets.includes('topTasks')?'display:none':''}">
         <h3 class="font-semibold text-sm mb-3 text-gray-600">Top 5 Tasks by Time</h3>
         <canvas id="chartTopTasks"></canvas>
       </div>
-      <div class="card p-5">
+      <div id="widget-timing" class="card p-5" style="${hiddenWidgets.includes('timing')?'display:none':''}">
         <h3 class="font-semibold text-sm mb-3 text-gray-600">Work Timing</h3>
         <canvas id="chartTiming"></canvas>
       </div>
     </div>
-    <div id="memberSuggestions" class="mb-4"></div>
+    <div id="widget-suggestions" class="mb-4" style="${hiddenWidgets.includes('suggestions')?'display:none':''}"><div id="memberSuggestions"></div></div>
     <div class="card mb-4">
       <div class="px-5 py-3 border-b border-gray-50 flex flex-wrap gap-2 items-center">
         <h3 class="font-semibold text-sm text-gray-700 mr-1">Task Log</h3>
@@ -923,21 +1007,98 @@ function renderMember(name) {
 
   // Top 5 tasks
   const topTasks = getTopTasks(rows,5);
-  chartInstances.push(new Chart(document.getElementById('chartTopTasks'),{
-    type:'bar',
-    data:{ labels:topTasks.map(t=>t.name.length>28?t.name.slice(0,26)+'…':t.name), datasets:[{label:'Hours',data:topTasks.map(t=>+t.hours.toFixed(2)),backgroundColor:topTasks.map(t=>t.color||'#6366f1'),borderRadius:5}] },
-    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
-  }));
+  if (!hiddenWidgets.includes('topTasks')) {
+    chartInstances.push(new Chart(document.getElementById('chartTopTasks'),{
+      type:'bar',
+      data:{ labels:topTasks.map(t=>t.name.length>28?t.name.slice(0,26)+'…':t.name), datasets:[{label:'Hours',data:topTasks.map(t=>+t.hours.toFixed(2)),backgroundColor:topTasks.map(t=>t.color||'#6366f1'),borderRadius:5}] },
+      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}h`}}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
+    }));
+  }
 
   // Timing
   const timing = getTimingBuckets(rows);
-  chartInstances.push(new Chart(document.getElementById('chartTiming'),{
-    type:'bar',
-    data:{ labels:['Morning\n06–12','Afternoon\n12–18','Evening\n18–24','Night\n00–06'], datasets:[{label:'Hours',data:[timing.Morning,timing.Afternoon,timing.Evening,timing.Night].map(v=>+v.toFixed(2)),backgroundColor:['#fde68a','#f59e0b','#6366f1','#312e81'],borderRadius:6}] },
-    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
-  }));
+  if (!hiddenWidgets.includes('timing')) {
+    chartInstances.push(new Chart(document.getElementById('chartTiming'),{
+      type:'bar',
+      data:{ labels:['Morning\n06–12','Afternoon\n12–18','Evening\n18–24','Night\n00–06'], datasets:[{label:'Hours',data:[timing.Morning,timing.Afternoon,timing.Evening,timing.Night].map(v=>+v.toFixed(2)),backgroundColor:['#fde68a','#f59e0b','#6366f1','#312e81'],borderRadius:6}] },
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
+    }));
+  }
 
   renderSuggestions(generateSuggestions(DATA,name),'memberSuggestions');
+  initCustomizePanel(name);
+}
+
+// ══════════════════════════════════════════════
+//  MEMBER CUSTOMIZATION
+// ══════════════════════════════════════════════
+const ACCENT_COLORS = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#22c55e'];
+const WIDGET_DEFS = [
+  { id:'note',        label:'Personal Note' },
+  { id:'heatmap',     label:'Daily Heatmap' },
+  { id:'topTasks',    label:'Top 5 Tasks' },
+  { id:'timing',      label:'Work Timing' },
+  { id:'suggestions', label:'AI Suggestions' },
+];
+
+function toggleCustomizePanel() {
+  document.getElementById('customizePanel').classList.toggle('hidden');
+}
+
+function initCustomizePanel(name) {
+  const prefs = getMemberPrefs(name);
+  const swatchContainer = document.getElementById('colorSwatches');
+  if (swatchContainer) {
+    swatchContainer.innerHTML = ACCENT_COLORS.map(c =>
+      `<div class="color-swatch ${(prefs.accentColor||'#6366f1')===c?'active':''}"
+        style="background:${c}" onclick="setAccentColor('${name}','${c}')"></div>`
+    ).join('');
+  }
+  const toggleContainer = document.getElementById('widgetToggles');
+  if (toggleContainer) {
+    const hidden = prefs.hiddenWidgets || [];
+    toggleContainer.innerHTML = WIDGET_DEFS.map(w =>
+      `<label class="widget-toggle" onclick="toggleWidget('${name}','${w.id}')">
+        <div class="toggle-pill ${hidden.includes(w.id)?'':'on'}" id="pill-${w.id}"></div>
+        <span>${w.label}</span>
+      </label>`
+    ).join('');
+  }
+}
+
+function setAccentColor(name, color) {
+  saveMemberPrefs(name, { accentColor: color });
+  destroyCharts();
+  renderMember(name);
+}
+
+function toggleWidget(name, widgetId) {
+  const prefs = getMemberPrefs(name);
+  const hidden = prefs.hiddenWidgets || [];
+  const newHidden = hidden.includes(widgetId)
+    ? hidden.filter(id => id !== widgetId)
+    : [...hidden, widgetId];
+  saveMemberPrefs(name, { hiddenWidgets: newHidden });
+  const el = document.getElementById(`widget-${widgetId}`);
+  if (el) el.style.display = newHidden.includes(widgetId) ? 'none' : '';
+  const pill = document.getElementById(`pill-${widgetId}`);
+  if (pill) pill.classList.toggle('on', !newHidden.includes(widgetId));
+}
+
+function saveGoal(name) {
+  const val = parseFloat(document.getElementById('goalInput').value) || 0;
+  saveMemberPrefs(name, { weeklyGoal: val });
+  destroyCharts();
+  renderMember(name);
+}
+
+let noteTimer = null;
+function autoSaveNote(name) {
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => {
+    const text = document.getElementById('memberNote')?.value || '';
+    saveMemberPrefs(name, { note: text });
+  }, 600);
 }
 
 function filterTable() {
