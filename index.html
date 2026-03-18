@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Efficiency Analytics</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  body { font-family: 'Inter', sans-serif; }
+  .tab-active { border-bottom: 3px solid #6366f1; color: #6366f1; font-weight: 600; }
+  .cat-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; font-weight: 500; white-space: nowrap; }
+  .suggestion-card { border-left: 4px solid #f59e0b; }
+  canvas { max-height: 340px; }
+  .spinner { border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; width: 32px; height: 32px; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .task-table th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+  .suggestion-card-claude { border-left: 4px solid #6366f1; }
+  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .heatmap-day { aspect-ratio: 1; border-radius: 3px; position: relative; cursor: default; display: flex; align-items: center; justify-content: center; min-height: 24px; font-size: 9px; font-weight: 500; }
+  .heatmap-day[title]:hover::after { content: attr(title); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #1e293b; color: white; font-size: 10px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 10; pointer-events: none; }
+  .desc-row td { border-top: none !important; }
+  .task-row.has-desc { cursor: pointer; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+<!-- SETUP MODAL -->
+<div id="setupModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4">
+    <h2 class="text-xl font-bold mb-2">Settings</h2>
+    <p class="text-gray-500 text-sm mb-4">Data loads automatically from <code>data.json</code>. Optionally connect a GAS proxy for live updates.</p>
+    <input id="gasUrlInput" type="url" placeholder="https://script.google.com/macros/s/... (optional)" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none mb-4" />
+    <button onclick="saveGasUrl()" class="w-full bg-indigo-600 text-white rounded-lg py-2 font-semibold hover:bg-indigo-700 transition">Save</button>
+    <button onclick="document.getElementById('setupModal').classList.add('hidden')" class="w-full mt-2 border border-gray-300 text-gray-600 rounded-lg py-2 font-semibold hover:bg-gray-50 transition">Close</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+  <h1 class="text-lg font-bold text-indigo-700 flex items-center gap-2">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    Work Efficiency Analytics
+  </h1>
+  <div class="flex items-center gap-3 text-sm">
+    <span id="statusDot" class="flex items-center gap-1 text-gray-400"><span class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span><span id="statusText">No data</span></span>
+    <button onclick="refreshData()" class="px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition text-xs font-medium">Refresh</button>
+    <button onclick="document.getElementById('setupModal').classList.remove('hidden')" class="px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition text-xs font-medium">Settings</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav id="tabBar" class="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto">
+  <button class="tab-btn tab-active px-4 py-2.5 text-sm transition" data-tab="overview">Tong quan</button>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main id="content" class="max-w-7xl mx-auto p-4">
+  <div class="flex justify-center py-20"><div class="spinner"></div></div>
+</main>
+
+<script>
+// ==================== CONFIG ====================
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let DATA = null;
+let currentTab = 'overview';
+
+// ==================== CATEGORY ENGINE ====================
+const CATEGORIES = [
+  { key: 'editing',    label: 'Editing',        vi: 'Bien tap',    color: '#6366f1', keywords: ['edit','bien tap','biên tập','dựng','rough cut','hook','revise','sửa','dung','chinh sua','chỉnh sửa','broll','mixing','sfx','bgm'] },
+  { key: 'meetings',   label: 'Meetings',       vi: 'Hop',         color: '#ec4899', keywords: ['họp','hop','meeting','trao đổi','trao doi','catch up','sync','agi','standup'] },
+  { key: 'design',     label: 'Design',         vi: 'Thiet ke',    color: '#14b8a6', keywords: ['thumb','design','template','layout','element','slide','thiết kế','thiet ke','brief thumb','banner'] },
+  { key: 'content',    label: 'Content & SEO',  vi: 'Noi dung',    color: '#f59e0b', keywords: ['seo','content','script','kịch bản','kich ban','research','nghiên cứu','nghien cuu','document','direction','strategy','bài viết','article'] },
+  { key: 'audio',      label: 'Audio',          vi: 'Am thanh',    color: '#8b5cf6', keywords: ['audio','nhạc','nhac','voice','sub','music','âm thanh'] },
+  { key: 'bd',         label: 'Business Dev',   vi: 'BD',          color: '#ef4444', keywords: ['bd','proposal','bảng giá','bang gia','outreach','khách mời','khach moi','pitch','soy','đọc tài liệu'] },
+  { key: 'production', label: 'Production',     vi: 'San xuat',    color: '#22c55e', keywords: ['quay','đăng','dang','upload','publish','transcode','proxy','đăng bài'] },
+  { key: 'admin',      label: 'Admin',          vi: 'Hanh chinh',  color: '#64748b', keywords: ['hoá đơn','hoa don','kế toán','ke toan','lương','luong','văn phòng','van phong','scan file','log-in','login'] },
+  { key: 'review',     label: 'Review',         vi: 'Review',      color: '#0ea5e9', keywords: ['review','check','feedback','note edit'] },
+  { key: 'planning',   label: 'Planning',       vi: 'Ke hoach',    color: '#a855f7', keywords: ['goal','plan','chuẩn bị','chuan bi','điền goal','dien goal','định thần','dinh than'] },
+];
+const CAT_OTHER = { key: 'other', label: 'Other', vi: 'Khac', color: '#94a3b8' };
+
+function categorize(taskName) {
+  const t = (taskName || '').toLowerCase();
+  for (const cat of CATEGORIES) {
+    for (const kw of cat.keywords) {
+      if (t.includes(kw)) return cat;
+    }
+  }
+  return CAT_OTHER;
+}
+
+function catColor(key) {
+  const c = CATEGORIES.find(c => c.key === key);
+  return c ? c.color : CAT_OTHER.color;
+}
+
+// ==================== DATA FETCHING ====================
+function getGasUrl() { return localStorage.getItem('gasUrl'); }
+
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url) return;
+  localStorage.setItem('gasUrl', url);
+  document.getElementById('setupModal').classList.add('hidden');
+  refreshData();
+}
+
+async function fetchData() {
+  const cached = sessionStorage.getItem('workData');
+  const ts = sessionStorage.getItem('workDataTs');
+  if (cached && ts && Date.now() - parseInt(ts) < CACHE_TTL) {
+    return JSON.parse(cached);
+  }
+
+  // Try local data.json first, then GAS URL
+  const sources = ['data.json'];
+  const gasUrl = getGasUrl();
+  if (gasUrl) sources.push(gasUrl);
+
+  for (const url of sources) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json && json.members) {
+        sessionStorage.setItem('workData', JSON.stringify(json));
+        sessionStorage.setItem('workDataTs', String(Date.now()));
+        setStatus(true);
+        return json;
+      }
+    } catch (e) {
+      console.warn('Fetch failed for', url, e);
+    }
+  }
+
+  console.error('All data sources failed');
+  setStatus(false);
+  if (cached) return JSON.parse(cached);
+  return null;
+}
+
+function setStatus(ok) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (ok) {
+    dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>';
+    txt.textContent = 'Updated ' + new Date().toLocaleTimeString('vi-VN');
+    txt.className = 'text-green-600';
+  } else {
+    dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>';
+    txt.textContent = 'Error';
+    txt.className = 'text-red-500';
+  }
+}
+
+async function refreshData() {
+  sessionStorage.removeItem('workData');
+  sessionStorage.removeItem('workDataTs');
+  document.getElementById('content').innerHTML = '<div class="flex justify-center py-20"><div class="spinner"></div></div>';
+  DATA = await fetchData();
+  if (DATA) render();
+}
+
+// ==================== ANALYTICS ENGINE ====================
+function enrichData(data) {
+  // Add category to each row
+  for (const name of data.memberNames) {
+    const rows = data.members[name] || [];
+    for (const r of rows) {
+      const cat = categorize(r.task);
+      r.category = cat.key;
+      r.categoryLabel = cat.label;
+      r.categoryColor = cat.color;
+    }
+  }
+  return data;
+}
+
+function getMemberStats(rows) {
+  if (!rows.length) return { totalHours: 0, weeklyHours: {}, categories: {}, dailyHours: {}, busiestDay: '-', avgPerDay: 0, tasks: [], totalTaskCount: 0, peakTime: '-' };
+
+  const categories = {};
+  const weeklyHours = {};
+  const dailyHours = {};
+  const timingBuckets = { Morning: 0, Afternoon: 0, Evening: 0, Night: 0 };
+  let totalHours = 0;
+  let totalTaskCount = 0;
+
+  for (const r of rows) {
+    totalHours += r.hours;
+    if (r.task && r.task.trim()) totalTaskCount++;
+    categories[r.category] = (categories[r.category] || 0) + r.hours;
+    const w = r.week || 'Unknown';
+    if (!weeklyHours[w]) weeklyHours[w] = { total: 0, weekday: 0, weekend: 0 };
+    weeklyHours[w].total = r.weekTotal || weeklyHours[w].total;
+    weeklyHours[w].weekday = r.weekdayTotal || weeklyHours[w].weekday;
+    weeklyHours[w].weekend = r.weekendTotal || weeklyHours[w].weekend;
+    dailyHours[r.date] = (dailyHours[r.date] || 0) + r.hours;
+    if (r.startTime) {
+      const h = parseInt(r.startTime.split(':')[0], 10);
+      if (!isNaN(h)) {
+        if (h >= 6 && h < 12) timingBuckets.Morning += r.hours;
+        else if (h >= 12 && h < 18) timingBuckets.Afternoon += r.hours;
+        else if (h >= 18 && h < 24) timingBuckets.Evening += r.hours;
+        else timingBuckets.Night += r.hours;
+      }
+    }
+  }
+
+  const days = Object.keys(dailyHours);
+  let busiestDay = '-';
+  let maxH = 0;
+  for (const d of days) { if (dailyHours[d] > maxH) { maxH = dailyHours[d]; busiestDay = d; } }
+
+  let peakTime = '-'; let peakVal = 0;
+  for (const [k, v] of Object.entries(timingBuckets)) { if (v > peakVal) { peakVal = v; peakTime = k; } }
+
+  return { totalHours, weeklyHours, categories, dailyHours, busiestDay, avgPerDay: days.length ? totalHours / days.length : 0, tasks: rows, totalTaskCount, peakTime };
+}
+
+function getCurrentWeekLabel(rows) {
+  const weeks = [...new Set(rows.map(r => r.week).filter(Boolean))];
+  return weeks[weeks.length - 1] || '';
+}
+
+function getCurrentWeekHours(rows) {
+  const cw = getCurrentWeekLabel(rows);
+  if (!cw) return 0;
+  const match = rows.find(r => r.week === cw && r.weekTotal > 0);
+  return match ? match.weekTotal : 0;
+}
+
+// ==================== AI SUGGESTIONS ====================
+const CLAUDE_KEYWORDS = ['claude', 'agent', 'ai agent', 'chatgpt', 'gemini', 'prompt'];
+
+function hasClaude(rows) {
+  return rows.some(r => { const t = (r.task || '').toLowerCase(); return CLAUDE_KEYWORDS.some(kw => t.includes(kw)); });
+}
+function claudeTaskCount(rows) {
+  return rows.filter(r => { const t = (r.task || '').toLowerCase(); return CLAUDE_KEYWORDS.some(kw => t.includes(kw)); }).length;
+}
+
+function generateSuggestions(data, memberName) {
+  const suggestions = [];
+  const isTeam = !memberName;
+  const members = memberName ? [memberName] : data.memberNames;
+
+  for (const name of members) {
+    const rows = data.members[name] || [];
+    if (!rows.length) continue;
+    const stats = getMemberStats(rows);
+    const prefix = isTeam ? `<b>${name}</b>: ` : '';
+
+    // 1. Repetitive micro-tasks → Claude slash command suggestion
+    const taskCounts = {};
+    for (const r of rows) {
+      const t = r.task.toLowerCase().trim();
+      if (!t) continue;
+      if (!taskCounts[t]) taskCounts[t] = { count: 0, totalH: 0, name: r.task };
+      taskCounts[t].count++;
+      taskCounts[t].totalH += r.hours;
+    }
+    for (const [, v] of Object.entries(taskCounts)) {
+      if (v.count >= 5 && (v.totalH / v.count) < 0.33) {
+        suggestions.push({ icon: '⚡', text: `${prefix}"${v.name}" appears ${v.count}× (avg ${Math.round(v.totalH/v.count*60)}min). Try a Claude Code slash command or prompt template to do this in seconds.`, type: 'claude' });
+      }
+    }
+
+    // 2. Context switching
+    const dailyTasks = {};
+    for (const r of rows) { dailyTasks[r.date] = (dailyTasks[r.date] || 0) + 1; }
+    for (const [d, c] of Object.entries(dailyTasks)) {
+      if (c >= 8) {
+        suggestions.push({ icon: '🔀', text: `${prefix}${c} different tasks on ${d}. Reduce task switching for deeper focus.`, type: 'focus' });
+        break;
+      }
+    }
+
+    // 3. Long sessions
+    for (const r of rows) {
+      if (r.hours > 4) {
+        suggestions.push({ icon: '⏱️', text: `${prefix}"${r.task}" took ${r.hours.toFixed(1)}h on ${r.date}. Break into 90-min focused blocks.`, type: 'health' });
+        break;
+      }
+    }
+
+    // 4. Weekend overwork
+    const weekWeekend = {};
+    for (const r of rows) { if (r.week && r.weekendTotal > 0) weekWeekend[r.week] = r.weekendTotal; }
+    for (const [w, h] of Object.entries(weekWeekend)) {
+      if (h > 5) {
+        suggestions.push({ icon: '🌙', text: `${prefix}${h.toFixed(1)}h on weekends (${w}). Redistribute to weekdays.`, type: 'balance' });
+        break;
+      }
+    }
+
+    // 5. Meeting heavy
+    const meetH = stats.categories['meetings'] || 0;
+    if (stats.totalHours > 0 && meetH / stats.totalHours > 0.2) {
+      suggestions.push({ icon: '📅', text: `${prefix}Meetings are ${Math.round(meetH/stats.totalHours*100)}% of total hours. Reduce or shorten meetings.`, type: 'meetings' });
+    }
+
+    // 6. Heavy content/script writing → Claude draft suggestion
+    const contentH = stats.categories['content'] || 0;
+    if (stats.totalHours > 0 && contentH / stats.totalHours > 0.25) {
+      suggestions.push({ icon: '⚡', text: `${prefix}Content & SEO is ${Math.round(contentH/stats.totalHours*100)}% of hours. Use Claude to draft video scripts — give it the guest bio + angle, get a full script in 2 min.`, type: 'claude' });
+    }
+
+    // 7. Manual research tasks → Claude brief
+    const researchKw = ['research', 'nghiên cứu', 'nghien cuu', 'tìm hiểu', 'tim hieu', 'đọc tài liệu', 'doc tai lieu'];
+    const researchH = rows.filter(r => researchKw.some(kw => (r.task || '').toLowerCase().includes(kw))).reduce((s, r) => s + r.hours, 0);
+    if (researchH > 2) {
+      suggestions.push({ icon: '⚡', text: `${prefix}${researchH.toFixed(1)}h on research tasks this period. Delegate to Claude: paste the topic, ask for a structured brief with sources.`, type: 'claude' });
+    }
+
+    // 8. BD/Proposal time → Claude draft
+    const bdH = stats.categories['bd'] || 0;
+    if (stats.totalHours > 0 && bdH / stats.totalHours > 0.15) {
+      suggestions.push({ icon: '⚡', text: `${prefix}Business Dev is ${Math.round(bdH/stats.totalHours*100)}% of hours. Claude can draft proposals and bảng giá from a template — try: "Write a proposal for [client] based on [our services]".`, type: 'claude' });
+    }
+
+    // 9. High admin load → Claude Code automation
+    const adminH = stats.categories['admin'] || 0;
+    if (stats.totalHours > 0 && adminH / stats.totalHours > 0.1) {
+      suggestions.push({ icon: '⚡', text: `${prefix}Admin tasks are ${Math.round(adminH/stats.totalHours*100)}% of hours. Use Claude Code to automate form-filling, invoice scanning, and file renaming via a simple script.`, type: 'claude' });
+    }
+
+    // 10. Long editing sessions → Claude checklist
+    for (const r of rows) {
+      if (r.category === 'editing' && r.hours > 4) {
+        suggestions.push({ icon: '⚡', text: `${prefix}"${r.task}" was a ${r.hours.toFixed(1)}h editing session. Ask Claude to generate a biên tập checklist before you start — cuts review loops by ~30%.`, type: 'claude' });
+        break;
+      }
+    }
+
+    // 11. Not using Claude yet
+    const claudeCount = claudeTaskCount(rows);
+    if (claudeCount === 0) {
+      suggestions.push({ icon: '🤖', text: `${prefix}Your teammates are already using Claude Code — ask Phoenix to walk you through the setup.`, type: 'claude' });
+    } else if (claudeCount <= 2 && stats.totalHours > 20) {
+      // 12. Claude setup but low usage
+      const topCat = Object.entries(stats.categories).sort((a,b) => b[1]-a[1])[0];
+      const topLabel = topCat ? (CATEGORIES.find(c=>c.key===topCat[0])||CAT_OTHER).label : 'your top category';
+      suggestions.push({ icon: '⚡', text: `${prefix}You've set up Claude — try using it for ${topLabel} next. Saves ~1–2h/week.`, type: 'claude' });
+    }
+  }
+
+  // Workload imbalance (team only)
+  if (isTeam) {
+    const weekMap = {};
+    for (const name of data.memberNames) {
+      const rows = data.members[name] || [];
+      for (const r of rows) {
+        if (!r.week) continue;
+        if (!weekMap[r.week]) weekMap[r.week] = {};
+        weekMap[r.week][name] = r.weekTotal || 0;
+      }
+    }
+    for (const [w, m] of Object.entries(weekMap)) {
+      const vals = Object.values(m).filter(v => v > 0);
+      if (vals.length < 2) continue;
+      const max = Math.max(...vals); const min = Math.min(...vals);
+      if (max > 45 && min < 30) {
+        const maxN = Object.entries(m).find(([,v]) => v === max)?.[0];
+        const minN = Object.entries(m).find(([,v]) => v === min)?.[0];
+        suggestions.push({ icon: '⚖️', text: `Workload imbalance (${w}): <b>${maxN}</b> ${max.toFixed(0)}h vs <b>${minN}</b> ${min.toFixed(0)}h. Rebalance workload.`, type: 'balance' });
+        break;
+      }
+    }
+  }
+
+  return suggestions;
+}
+
+// ==================== HELPER FUNCTIONS ====================
+function buildHeatmap(rows) {
+  if (!rows.length) return '';
+  const dailyHours = {};
+  const dailyTaskCount = {};
+  for (const r of rows) {
+    if (!r.date) continue;
+    dailyHours[r.date] = (dailyHours[r.date] || 0) + r.hours;
+    dailyTaskCount[r.date] = (dailyTaskCount[r.date] || 0) + 1;
+  }
+  const dates = Object.keys(dailyHours).sort();
+  if (!dates.length) return '';
+
+  const firstDate = new Date(dates[0]);
+  const lastDate = new Date(dates[dates.length - 1]);
+
+  const startDay = new Date(firstDate);
+  const dow = startDay.getDay();
+  const offset = dow === 0 ? 6 : dow - 1;
+  startDay.setDate(startDay.getDate() - offset);
+
+  const endDay = new Date(lastDate);
+  const endDow = endDay.getDay();
+  const endOffset = endDow === 0 ? 0 : 7 - endDow;
+  endDay.setDate(endDay.getDate() + endOffset);
+
+  const maxH = Math.max(...Object.values(dailyHours));
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  let html = '<div class="overflow-x-auto"><div style="min-width:280px">';
+  html += '<div class="heatmap-grid mb-1">';
+  for (const d of dayLabels) {
+    html += `<div class="text-center text-xs text-gray-400 font-medium py-1">${d}</div>`;
+  }
+  html += '</div><div class="heatmap-grid">';
+
+  const cur = new Date(startDay);
+  while (cur <= endDay) {
+    const dateStr = cur.toISOString().split('T')[0];
+    const h = dailyHours[dateStr] || 0;
+    const tc = dailyTaskCount[dateStr] || 0;
+    const intensity = maxH > 0 ? h / maxH : 0;
+    let bg, textColor;
+    if (h === 0) { bg = '#f1f5f9'; textColor = '#94a3b8'; }
+    else if (intensity < 0.25) { bg = '#e0e7ff'; textColor = '#4338ca'; }
+    else if (intensity < 0.5) { bg = '#a5b4fc'; textColor = '#3730a3'; }
+    else if (intensity < 0.75) { bg = '#6366f1'; textColor = 'white'; }
+    else { bg = '#4338ca'; textColor = 'white'; }
+    const tooltip = h > 0 ? `${dateStr}: ${h.toFixed(1)}h · ${tc} tasks` : dateStr;
+    html += `<div class="heatmap-day" style="background:${bg};color:${textColor}" title="${tooltip}">${h > 0 ? h.toFixed(1) : ''}</div>`;
+    cur.setDate(cur.getDate() + 1);
+  }
+  html += '</div></div></div>';
+  return html;
+}
+
+function getTopTasks(rows, n = 5) {
+  const taskMap = {};
+  for (const r of rows) {
+    if (!r.task || !r.task.trim()) continue;
+    const key = r.task.trim();
+    if (!taskMap[key]) taskMap[key] = { name: key, hours: 0, category: r.category, color: r.categoryColor };
+    taskMap[key].hours += r.hours;
+  }
+  return Object.values(taskMap).sort((a, b) => b.hours - a.hours).slice(0, n);
+}
+
+function getTimingBuckets(rows) {
+  const buckets = { Morning: 0, Afternoon: 0, Evening: 0, Night: 0 };
+  for (const r of rows) {
+    if (!r.startTime) continue;
+    const h = parseInt(r.startTime.split(':')[0], 10);
+    if (isNaN(h)) continue;
+    if (h >= 6 && h < 12) buckets.Morning += r.hours;
+    else if (h >= 12 && h < 18) buckets.Afternoon += r.hours;
+    else if (h >= 18 && h < 24) buckets.Evening += r.hours;
+    else buckets.Night += r.hours;
+  }
+  return buckets;
+}
+
+function toggleDesc(i) {
+  const row = document.getElementById(`desc-row-${i}`);
+  if (!row) return;
+  row.classList.toggle('hidden');
+}
+
+// ==================== RENDERING ====================
+let chartInstances = [];
+function destroyCharts() { chartInstances.forEach(c => c.destroy()); chartInstances = []; }
+
+function render() {
+  if (!DATA) return;
+  DATA = enrichData(DATA);
+  buildTabs();
+  if (currentTab === 'overview') renderOverview();
+  else renderMember(currentTab);
+}
+
+function buildTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  const tabs = [{ id: 'overview', label: 'Tong quan' }, ...DATA.memberNames.map(n => ({ id: n, label: n }))];
+  for (const t of tabs) {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn px-4 py-2.5 text-sm transition whitespace-nowrap ' + (currentTab === t.id ? 'tab-active' : 'text-gray-500 hover:text-gray-700');
+    btn.dataset.tab = t.id;
+    btn.textContent = t.label;
+    btn.onclick = () => { currentTab = t.id; destroyCharts(); render(); };
+    bar.appendChild(btn);
+  }
+}
+
+// ---------- OVERVIEW ----------
+function renderOverview() {
+  destroyCharts();
+  const el = document.getElementById('content');
+  const names = DATA.memberNames;
+
+  // Summary cards
+  let cardsHtml = '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">';
+  for (const name of names) {
+    const rows = DATA.members[name] || [];
+    const stats = getMemberStats(rows);
+    const cwH = getCurrentWeekHours(rows);
+    cardsHtml += `
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="currentTab='${name}';destroyCharts();render()">
+        <div class="text-sm font-semibold text-gray-700 mb-1">${name}</div>
+        <div class="text-2xl font-bold text-indigo-600">${stats.totalHours.toFixed(1)}<span class="text-xs text-gray-400 font-normal">h total</span></div>
+        <div class="text-xs text-gray-500 mt-1">This week: ${cwH.toFixed(1)}h</div>
+      </div>`;
+  }
+  cardsHtml += '</div>';
+
+  // Chart containers
+  el.innerHTML = cardsHtml + `
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Team Hours Comparison</h3>
+        <canvas id="chartTeamHours"></canvas>
+      </div>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Category Breakdown (Team)</h3>
+        <canvas id="chartTeamCats"></canvas>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-6">
+      <h3 class="font-semibold text-sm mb-3 text-gray-700">Weekly Trend</h3>
+      <canvas id="chartWeekly"></canvas>
+    </div>
+    <div id="suggestionsPanel"></div>
+  `;
+
+  // --- Team Hours Bar ---
+  const totalByMember = names.map(n => getMemberStats(DATA.members[n] || []).totalHours);
+  chartInstances.push(new Chart(document.getElementById('chartTeamHours'), {
+    type: 'bar',
+    data: { labels: names, datasets: [{ label: 'Total Hours', data: totalByMember, backgroundColor: '#6366f1', borderRadius: 6 }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+  }));
+
+  // --- Category Stacked Bar ---
+  const allCats = [...CATEGORIES, CAT_OTHER];
+  const catDatasets = allCats.map(cat => ({
+    label: cat.label,
+    data: names.map(n => {
+      const rows = DATA.members[n] || [];
+      return rows.filter(r => r.category === cat.key).reduce((s, r) => s + r.hours, 0);
+    }),
+    backgroundColor: cat.color,
+    borderRadius: 3
+  })).filter(ds => ds.data.some(v => v > 0));
+
+  chartInstances.push(new Chart(document.getElementById('chartTeamCats'), {
+    type: 'bar',
+    data: { labels: names, datasets: catDatasets },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  }));
+
+  // --- Weekly Trend Line ---
+  const allWeeks = [...new Set(names.flatMap(n => (DATA.members[n] || []).map(r => r.week).filter(Boolean)))];
+  allWeeks.sort();
+  const weekColors = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#22c55e'];
+  const weekDatasets = names.map((n, i) => {
+    const rows = DATA.members[n] || [];
+    const weekMap = {};
+    for (const r of rows) { if (r.week) weekMap[r.week] = r.weekTotal || 0; }
+    return {
+      label: n,
+      data: allWeeks.map(w => weekMap[w] || 0),
+      borderColor: weekColors[i % weekColors.length],
+      backgroundColor: weekColors[i % weekColors.length] + '22',
+      tension: 0.3,
+      fill: false,
+      pointRadius: 3
+    };
+  });
+
+  chartInstances.push(new Chart(document.getElementById('chartWeekly'), {
+    type: 'line',
+    data: { labels: allWeeks.map(w => w.replace(/^\d{4}-\d{2} \| /, '')), datasets: weekDatasets },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: true } } }
+  }));
+
+  // --- Suggestions ---
+  renderSuggestions(generateSuggestions(DATA), 'suggestionsPanel');
+}
+
+// ---------- MEMBER ----------
+function renderMember(name) {
+  destroyCharts();
+  const el = document.getElementById('content');
+  const rows = DATA.members[name] || [];
+  const stats = getMemberStats(rows);
+  const cwH = getCurrentWeekHours(rows);
+
+  // A. 6 Stat cards
+  const statsHtml = `
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">Monthly Total</div>
+        <div class="text-2xl font-bold text-indigo-600">${stats.totalHours.toFixed(1)}h</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">This Week</div>
+        <div class="text-2xl font-bold text-indigo-600">${cwH.toFixed(1)}h</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">Busiest Day</div>
+        <div class="text-base font-bold text-gray-700">${stats.busiestDay}</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">Avg Hours/Day</div>
+        <div class="text-2xl font-bold text-indigo-600">${stats.avgPerDay.toFixed(1)}h</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">Total Tasks</div>
+        <div class="text-2xl font-bold text-indigo-600">${stats.totalTaskCount}</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div class="text-xs text-gray-500">Peak Time</div>
+        <div class="text-lg font-bold text-gray-700">${stats.peakTime}</div>
+      </div>
+    </div>`;
+
+  // B. Heatmap
+  const heatmapHtml = `
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-6">
+      <h3 class="font-semibold text-sm mb-3 text-gray-700">Daily Activity Heatmap</h3>
+      ${buildHeatmap(rows) || '<p class="text-xs text-gray-400">No date data available.</p>'}
+      <div class="flex items-center gap-2 mt-3 text-xs text-gray-400">
+        <span>Less</span>
+        <div class="flex gap-1">
+          ${['#f1f5f9','#e0e7ff','#a5b4fc','#6366f1','#4338ca'].map(c => `<div style="width:14px;height:14px;border-radius:3px;background:${c}"></div>`).join('')}
+        </div>
+        <span>More</span>
+      </div>
+    </div>`;
+
+  // Filters for task log
+  const allCats = [...new Set(rows.map(r => r.category))];
+  const allWeeks = [...new Set(rows.map(r => r.week).filter(Boolean))];
+  allWeeks.sort();
+
+  // E+F. Task log rows with description expand
+  const taskRowsHtml = rows.map((r, i) => {
+    const hasDesc = r.description && r.description.trim();
+    return `
+      <tr class="task-row border-t border-gray-50 hover:bg-gray-50 ${hasDesc ? 'has-desc' : ''}"
+          data-cat="${r.category}" data-week="${r.week || ''}" data-task="${escHtml(r.task)}" data-row-id="${i}"
+          ${hasDesc ? `onclick="toggleDesc(${i})"` : ''}>
+        <td class="px-4 py-2 text-gray-600 whitespace-nowrap">${r.date}</td>
+        <td class="px-4 py-2 font-medium text-gray-800">${escHtml(r.task)}${hasDesc ? ' <span class="text-gray-300 text-xs select-none">▼</span>' : ''}</td>
+        <td class="px-4 py-2"><span class="cat-badge" style="background:${r.categoryColor}20;color:${r.categoryColor}">${r.categoryLabel}</span></td>
+        <td class="px-4 py-2 text-gray-500">${r.startTime || ''}</td>
+        <td class="px-4 py-2 text-gray-500">${r.endTime || ''}</td>
+        <td class="px-4 py-2 text-right font-medium">${r.hours.toFixed(2)}</td>
+      </tr>
+      ${hasDesc ? `<tr id="desc-row-${i}" class="desc-row hidden" data-cat="${r.category}" data-week="${r.week || ''}" data-task="${escHtml(r.task)}">
+        <td colspan="6" class="px-4 pb-2 pt-0 text-xs text-gray-500 italic bg-gray-50">${escHtml(r.description)}</td>
+      </tr>` : ''}`;
+  }).join('');
+
+  el.innerHTML = statsHtml + heatmapHtml + `
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Category Distribution</h3>
+        <div style="position:relative">
+          <canvas id="chartMemberCat"></canvas>
+          <div id="doughnutCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;font-size:11px;font-weight:600;color:#4b5563;max-width:70px;line-height:1.2"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Weekly Hours (Weekday vs Weekend)</h3>
+        <canvas id="chartMemberWeekly"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Top 5 Tasks by Time</h3>
+        <canvas id="chartTopTasks"></canvas>
+      </div>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <h3 class="font-semibold text-sm mb-3 text-gray-700">Work Timing Distribution</h3>
+        <canvas id="chartTiming"></canvas>
+      </div>
+    </div>
+    <div id="memberSuggestions" class="mb-6"></div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+      <div class="p-4 border-b border-gray-100 flex flex-wrap gap-2 items-center">
+        <h3 class="font-semibold text-sm text-gray-700 mr-2">Task Log</h3>
+        <input id="filterSearch" type="text" placeholder="Search tasks…" oninput="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-indigo-300 focus:outline-none" style="min-width:140px" />
+        <select id="filterCat" onchange="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2 py-1">
+          <option value="">All Categories</option>
+          ${allCats.map(c => `<option value="${c}">${(CATEGORIES.find(x=>x.key===c)||CAT_OTHER).label}</option>`).join('')}
+        </select>
+        <select id="filterWeek" onchange="filterTable()" class="text-xs border border-gray-200 rounded-lg px-2 py-1">
+          <option value="">All Weeks</option>
+          ${allWeeks.map(w => `<option value="${w}">${w}</option>`).join('')}
+        </select>
+        <span class="text-xs text-gray-400 ml-auto">Click row with ▼ to expand description</span>
+      </div>
+      <div class="overflow-auto max-h-[500px]">
+        <table class="task-table w-full text-xs">
+          <thead><tr class="text-left text-gray-500">
+            <th class="px-4 py-2 font-medium">Date</th>
+            <th class="px-4 py-2 font-medium">Task</th>
+            <th class="px-4 py-2 font-medium">Category</th>
+            <th class="px-4 py-2 font-medium">Start</th>
+            <th class="px-4 py-2 font-medium">End</th>
+            <th class="px-4 py-2 font-medium text-right">Hours</th>
+          </tr></thead>
+          <tbody id="taskTableBody">${taskRowsHtml}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // --- C. Doughnut with center text ---
+  const catEntries = Object.entries(stats.categories).sort((a,b) => b[1]-a[1]);
+  const topCatLabel = catEntries.length ? (CATEGORIES.find(c=>c.key===catEntries[0][0])||CAT_OTHER).label : '';
+  const topCatPct = catEntries.length && stats.totalHours > 0 ? Math.round(catEntries[0][1]/stats.totalHours*100) : 0;
+  chartInstances.push(new Chart(document.getElementById('chartMemberCat'), {
+    type: 'doughnut',
+    data: {
+      labels: catEntries.map(([k]) => (CATEGORIES.find(c=>c.key===k)||CAT_OTHER).label),
+      datasets: [{ data: catEntries.map(([,v]) => +v.toFixed(2)), backgroundColor: catEntries.map(([k]) => catColor(k)), borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      animation: { onComplete() {
+        const center = document.getElementById('doughnutCenter');
+        if (center) center.innerHTML = topCatLabel + '<br><span style="font-size:14px;color:#6366f1">' + topCatPct + '%</span>';
+      }}
+    }
+  }));
+
+  // --- D. Weekly Bar (weekday vs weekend) ---
+  const weekEntries = Object.entries(stats.weeklyHours).sort(([a],[b]) => a.localeCompare(b));
+  chartInstances.push(new Chart(document.getElementById('chartMemberWeekly'), {
+    type: 'bar',
+    data: {
+      labels: weekEntries.map(([w]) => w.replace(/^\d{4}-\d{2} \| /, '')),
+      datasets: [
+        { label: 'Weekday', data: weekEntries.map(([,v]) => v.weekday), backgroundColor: '#6366f1', borderRadius: 4 },
+        { label: 'Weekend', data: weekEntries.map(([,v]) => v.weekend), backgroundColor: '#f59e0b', borderRadius: 4 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  }));
+
+  // --- E. Top 5 Tasks horizontal bar ---
+  const topTasks = getTopTasks(rows, 5);
+  chartInstances.push(new Chart(document.getElementById('chartTopTasks'), {
+    type: 'bar',
+    data: {
+      labels: topTasks.map(t => t.name.length > 30 ? t.name.slice(0, 28) + '…' : t.name),
+      datasets: [{ label: 'Hours', data: topTasks.map(t => +t.hours.toFixed(2)), backgroundColor: topTasks.map(t => t.color || '#6366f1'), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw}h` } } },
+      scales: { x: { beginAtZero: true } }
+    }
+  }));
+
+  // --- F. Work timing distribution ---
+  const timing = getTimingBuckets(rows);
+  chartInstances.push(new Chart(document.getElementById('chartTiming'), {
+    type: 'bar',
+    data: {
+      labels: ['Morning\n06–12', 'Afternoon\n12–18', 'Evening\n18–24', 'Night\n00–06'],
+      datasets: [{ label: 'Hours', data: [timing.Morning, timing.Afternoon, timing.Evening, timing.Night].map(v => +v.toFixed(2)), backgroundColor: ['#fde68a','#f59e0b','#6366f1','#312e81'], borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  }));
+
+  // --- Suggestions ---
+  renderSuggestions(generateSuggestions(DATA, name), 'memberSuggestions');
+}
+
+function filterTable() {
+  const cat = document.getElementById('filterCat')?.value || '';
+  const week = document.getElementById('filterWeek')?.value || '';
+  const search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+  document.querySelectorAll('.task-row').forEach(tr => {
+    const taskText = (tr.dataset.task || '').toLowerCase();
+    const show = (!cat || tr.dataset.cat === cat) && (!week || tr.dataset.week === week) && (!search || taskText.includes(search));
+    tr.style.display = show ? '' : 'none';
+    // Sync associated desc row
+    const rowId = tr.dataset.rowId;
+    if (rowId !== undefined) {
+      const descRow = document.getElementById(`desc-row-${rowId}`);
+      if (descRow && !show) descRow.style.display = 'none';
+      else if (descRow && show && !descRow.classList.contains('hidden')) descRow.style.display = '';
+    }
+  });
+}
+
+function renderSuggestions(suggestions, containerId) {
+  const el = document.getElementById(containerId);
+  if (!suggestions.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="bg-amber-50 rounded-xl p-5 border border-amber-200">
+      <h3 class="font-semibold text-sm mb-3 text-amber-800 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        AI Suggestions
+      </h3>
+      <div class="space-y-2">
+        ${suggestions.slice(0, 12).map(s => {
+          const isClaude = s.type === 'claude';
+          const cls = isClaude
+            ? 'suggestion-card-claude bg-indigo-50 rounded-lg px-4 py-2 text-sm text-indigo-900'
+            : 'suggestion-card bg-white rounded-lg px-4 py-2 text-sm text-gray-700';
+          return `<div class="${cls}"><span class="mr-1">${s.icon}</span> ${s.text}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// ==================== INIT ====================
+(async function init() {
+  DATA = await fetchData();
+  if (DATA) render();
+  else document.getElementById('content').innerHTML = '<div class="text-center py-20 text-red-400">Failed to load data. Serve this folder with a local HTTP server, or check Settings.</div>';
+
+  // Auto-refresh every 5 minutes
+  setInterval(async () => {
+    sessionStorage.removeItem('workData');
+    sessionStorage.removeItem('workDataTs');
+    DATA = await fetchData();
+    if (DATA) render();
+  }, CACHE_TTL);
+})();
+</script>
+</body>
+</html>
